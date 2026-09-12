@@ -9,6 +9,7 @@ import {
   deletePocketchDatabase,
 } from "../../services/storage/collectionRepository";
 import { StorageError } from "../../services/storage/errors";
+import { CameraCapture } from "./CameraCapture";
 
 type LoadState =
   | { status: "loading" }
@@ -25,6 +26,8 @@ export function CollectionPage() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [captureForRemoval, setCaptureForRemoval] = useState<Blob | null>(null);
+  const discardCapture = useCallback(() => setCaptureForRemoval(null), []);
 
   const load = useCallback(async () => {
     setState({ status: "loading" });
@@ -115,14 +118,20 @@ export function CollectionPage() {
           <h1 id="collection-title">내 물건을 모아보세요</h1>
           <p className="lead">카메라 촬영 기능은 다음 구현 단계에서 이곳에 연결됩니다.</p>
         </div>
-        <div className="stage-placeholder" aria-label="채집 물리 장면 준비 중">
-          <span>물리 장면 준비 중</span>
-        </div>
+        <CameraCapture
+          onBackgroundRemovalRequested={setCaptureForRemoval}
+          onSourceDiscarded={discardCapture}
+        />
       </section>
 
       <aside className="collection-sidebar" aria-label="채집 정보">
         <div className="metric"><span>모은 물건</span><strong>{state.items.length}</strong></div>
         <div className="metric"><span>축소 단계</span><strong>{state.settings.scaleLevel}</strong></div>
+        {captureForRemoval ? (
+          <p className="handoff-status" aria-live="polite">
+            배경 제거 대기 이미지 {(captureForRemoval.size / 1024).toFixed(0)}KB
+          </p>
+        ) : null}
         {state.items.length === 0 ? (
           <StatusPanel title="아직 모은 물건이 없어요">
             <p>카메라 기능이 연결되면 물건을 촬영해 이곳에 쌓을 수 있습니다.</p>
