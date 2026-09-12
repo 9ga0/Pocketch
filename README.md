@@ -36,6 +36,23 @@ Pocketch는 관람객의 실제 소지품을 노트북 카메라로 촬영해 �
 - 브라우저 기반 배경제거 라이브러리
 - IndexedDB
 
+## 로컬 실행
+
+Node.js 20.19 이상 또는 22.12 이상에서 실행합니다.
+
+```bash
+npm install
+npm run dev
+```
+
+프로덕션 빌드와 검증 명령은 다음과 같습니다.
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
 ## 문서
 
 기능 규칙, 데이터 모델, 예외 처리와 완료 기준은 [제품 명세서](docs/PRODUCT_SPEC.md)에서 확인할 수 있습니다.
