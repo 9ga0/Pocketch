@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../../components/Button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { StatusPanel } from "../../components/StatusPanel";
@@ -10,6 +10,7 @@ import {
 } from "../../services/storage/collectionRepository";
 import { StorageError } from "../../services/storage/errors";
 import { CameraCapture } from "./CameraCapture";
+import { ItemRegistration } from "./ItemRegistration";
 
 type LoadState =
   | { status: "loading" }
@@ -27,6 +28,8 @@ export function CollectionPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [captureForRemoval, setCaptureForRemoval] = useState<Blob | null>(null);
+  const [cameraSession, setCameraSession] = useState(0);
+  const sidebarRef = useRef<HTMLElement>(null);
   const discardCapture = useCallback(() => setCaptureForRemoval(null), []);
 
   const load = useCallback(async () => {
@@ -73,6 +76,20 @@ export function CollectionPage() {
     }
   };
 
+  const finishRegistration = (item: CollectedItem) => {
+    setState((current) => current.status === "ready"
+      ? { ...current, items: [...current.items, item] }
+      : current);
+    collectionSceneBridge.dispatch({ type: "item:add", item });
+    setCaptureForRemoval(null);
+    setCameraSession((current) => current + 1);
+  };
+
+  const cancelRegistration = () => {
+    setCaptureForRemoval(null);
+    setCameraSession((current) => current + 1);
+  };
+
   if (state.status === "loading") {
     return (
       <StatusPanel title="채집물을 불러오고 있어요" live>
@@ -116,25 +133,30 @@ export function CollectionPage() {
         <div>
           <p className="eyebrow">COLLECTION</p>
           <h1 id="collection-title">내 물건을 모아보세요</h1>
-          <p className="lead">카메라 촬영 기능은 다음 구현 단계에서 이곳에 연결됩니다.</p>
+          <p className="lead">사진은 기기 안에서 배경을 지운 뒤 투명 이미지로 저장됩니다.</p>
         </div>
-        <CameraCapture
-          onBackgroundRemovalRequested={setCaptureForRemoval}
-          onSourceDiscarded={discardCapture}
-        />
+        {captureForRemoval ? (
+          <ItemRegistration
+            source={captureForRemoval}
+            onCancel={cancelRegistration}
+            onSaved={finishRegistration}
+            onManageItems={() => sidebarRef.current?.focus()}
+          />
+        ) : (
+          <CameraCapture
+            key={cameraSession}
+            onBackgroundRemovalRequested={setCaptureForRemoval}
+            onSourceDiscarded={discardCapture}
+          />
+        )}
       </section>
 
-      <aside className="collection-sidebar" aria-label="채집 정보">
+      <aside ref={sidebarRef} className="collection-sidebar" aria-label="채집 정보" tabIndex={-1}>
         <div className="metric"><span>모은 물건</span><strong>{state.items.length}</strong></div>
         <div className="metric"><span>축소 단계</span><strong>{state.settings.scaleLevel}</strong></div>
-        {captureForRemoval ? (
-          <p className="handoff-status" aria-live="polite">
-            배경 제거 대기 이미지 {(captureForRemoval.size / 1024).toFixed(0)}KB
-          </p>
-        ) : null}
         {state.items.length === 0 ? (
           <StatusPanel title="아직 모은 물건이 없어요">
-            <p>카메라 기능이 연결되면 물건을 촬영해 이곳에 쌓을 수 있습니다.</p>
+            <p>물건을 촬영하고 이름을 붙이면 이곳에 바로 쌓입니다.</p>
           </StatusPanel>
         ) : (
           <ul className="item-list" aria-label="저장된 물건">

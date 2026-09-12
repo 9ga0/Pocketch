@@ -157,7 +157,7 @@ export function CameraCapture({
         </div>
         {handedOff ? (
           <p className="camera-notice" aria-live="polite">
-            촬영 이미지를 배경 제거 단계에 전달했습니다. 다음 이슈에서 처리가 연결됩니다.
+            촬영 이미지를 배경 제거 단계에 전달했습니다.
           </p>
         ) : null}
       </div>
