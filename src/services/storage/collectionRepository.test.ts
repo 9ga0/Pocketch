@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_COLLECTION_SETTINGS, type CollectedItem } from "../../domain/collection";
-import { collectionRepository, deletePocketchDatabase } from "./collectionRepository";
+import { collectionRepository, DATABASE_VERSION, deletePocketchDatabase } from "./collectionRepository";
 import { StorageError, toStorageError } from "./errors";
 
 const item = (overrides: Partial<CollectedItem> = {}): CollectedItem => ({
@@ -18,9 +18,9 @@ describe("collectionRepository", () => {
   beforeEach(async () => { await deletePocketchDatabase(); });
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it("creates the version-one stores when opening a new database", async () => {
+  it("creates the current stores when opening a new database", async () => {
     await collectionRepository.getItems();
-    const request = indexedDB.open("pocketch", 1);
+    const request = indexedDB.open("pocketch", DATABASE_VERSION);
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -29,6 +29,7 @@ describe("collectionRepository", () => {
     expect([...database.objectStoreNames]).toEqual([
       "collected-items",
       "collection-settings",
+      "game-results",
     ]);
     database.close();
   });
@@ -95,6 +96,22 @@ describe("collectionRepository", () => {
     await collectionRepository.addItem(item());
     await expect(collectionRepository.addItem(item({ name: "중복" }))).rejects.toMatchObject({ code: "write-failed" });
     expect((await collectionRepository.getItems())[0].name).toBe("노란 컵");
+  });
+
+  it("sorts game results by score, then earlier time, and limits the list", async () => {
+    for (let index = 0; index < 12; index += 1) {
+      await collectionRepository.addGameResult({ id: `result-${index}`, nickname: `선수${index}`, score: index === 11 ? 100 : 1000 - index * 10, caughtCount: index, playedAt: `2026-09-12T10:${String(index).padStart(2, "0")}:00.000Z` });
+    }
+    const results = await collectionRepository.getTopResults();
+    expect(results).toHaveLength(10);
+    expect(results[0].score).toBe(1000);
+    expect(results.at(-1)?.nickname).toBe("선수9");
+  });
+
+  it("clears game results independently", async () => {
+    await collectionRepository.addGameResult({ id: "result-1", nickname: "포켓", score: 100, caughtCount: 1, playedAt: "2026-09-12T10:00:00.000Z" });
+    await collectionRepository.resetResults();
+    expect(await collectionRepository.getTopResults()).toEqual([]);
   });
 });
 
