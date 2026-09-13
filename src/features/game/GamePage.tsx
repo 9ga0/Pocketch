@@ -3,14 +3,14 @@ import { Button } from "../../components/Button";
 import { StatusPanel } from "../../components/StatusPanel";
 import type { CollectedItem, GameResult } from "../../domain/collection";
 import { collectionRepository } from "../../services/storage/collectionRepository";
-import { ActiveGameClock, countdownNumber, createItemOutcomeTracker } from "./gameSession";
+import { ActiveGameClock, createItemOutcomeTracker, createPauseController, resizeCoordinate, type PauseReason } from "./gameSession";
 import { CATCH_SCORE, GAME_COUNTDOWN_SECONDS, GAME_DURATION_SECONDS, clampBasketX, createDirectionController, pickRandomIndex, randomSpawnX, validNickname } from "./gameRules";
 
 type Phase = "loading" | "idle" | "countdown" | "playing" | "paused" | "finished";
 type FallingItem = { id: string; x: number; y: number; size: number; item: CollectedItem };
 type CatchEffect = { id: string; x: number; y: number };
 
-export function GamePage({ onGoToCollection, onGameStateChange }: { onGoToCollection: () => void; onGameStateChange?: (active: boolean) => void }) {
+export function GamePage({ onGoToCollection, onGameStateChange, navigationPause = false }: { onGoToCollection: () => void; onGameStateChange?: (active: boolean) => void; navigationPause?: boolean }) {
   const [items, setItems] = useState<CollectedItem[]>([]);
   const [phase, setPhase] = useState<Phase>("loading");
   const [nickname, setNickname] = useState("");
@@ -22,12 +22,14 @@ export function GamePage({ onGoToCollection, onGameStateChange }: { onGoToCollec
   const [effects, setEffects] = useState<CatchEffect[]>([]);
   const [completed, setCompleted] = useState<GameResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pauseReasons, setPauseReasons] = useState<PauseReason[]>([]);
   const arenaRef = useRef<HTMLDivElement>(null);
   const basketX = useRef<number | null>(null);
   const direction = useRef(createDirectionController());
   const outcomes = useRef(createItemOutcomeTracker());
+  const pauses = useRef(createPauseController());
   const clock = useRef(new ActiveGameClock(GAME_DURATION_SECONDS * 1000));
-  const countdownStartedAt = useRef(0);
+  const countdownClock = useRef(new ActiveGameClock(GAME_COUNTDOWN_SECONDS * 1000));
   const lastFrame = useRef(0);
   const sequence = useRef(0);
   const scoreRef = useRef(0);
@@ -36,6 +38,10 @@ export function GamePage({ onGoToCollection, onGameStateChange }: { onGoToCollec
   const finished = useRef(false);
   const effectTimers = useRef(new Set<number>());
   const snapshot = useRef<CollectedItem[]>([]);
+  const phaseRef = useRef<Phase>(phase);
+  const arenaSize = useRef({ width: 0, height: 0 });
+  const suppressCollisionFrames = useRef(0);
+  phaseRef.current = phase;
 
   const urls = useMemo(() => new Map(items.map((item) => [item.id, URL.createObjectURL(item.image)])), [items]);
   useEffect(() => () => urls.forEach((url) => URL.revokeObjectURL(url)), [urls]);
@@ -57,25 +63,69 @@ export function GamePage({ onGoToCollection, onGameStateChange }: { onGoToCollec
     setCompleted(result); setScore(result.score); setCaught(result.caughtCount); setFalling([]); setPhase("finished");
   }, [nickname]);
 
+  const pauseGame = useCallback((reason: PauseReason) => {
+    const current = phaseRef.current;
+    if (current === "countdown" || current === "playing") {
+      pauses.current.pause(reason, current);
+      if (current === "countdown") countdownClock.current.pause(); else clock.current.pause();
+      direction.current.clear(); setPauseReasons(pauses.current.activeReasons()); setPhase("paused");
+    } else if (current === "paused") {
+      pauses.current.pause(reason); setPauseReasons(pauses.current.activeReasons());
+    }
+  }, []);
+
+  const clearPauseReason = useCallback((reason: PauseReason) => {
+    pauses.current.clearReason(reason); setPauseReasons(pauses.current.activeReasons());
+  }, []);
+
+  const resumeGame = () => {
+    if (!pauses.current.canResume()) return;
+    const target = pauses.current.targetPhase();
+    if (target === "countdown") countdownClock.current.resume(); else clock.current.resume();
+    lastFrame.current = performance.now(); setPhase(target);
+  };
+
   const start = () => {
     if (!validNickname(nickname) || !items.length) return;
-    snapshot.current = [...items]; sessionId.current = crypto.randomUUID(); sequence.current = 0; basketX.current = null; finished.current = false;
+    snapshot.current = [...items]; sessionId.current = crypto.randomUUID(); sequence.current = 0; basketX.current = null; finished.current = false; pauses.current.reset(); setPauseReasons([]);
     effectTimers.current.forEach((timer) => window.clearTimeout(timer)); effectTimers.current.clear();
     outcomes.current.reset(); scoreRef.current = 0; caughtRef.current = 0; setCompleted(null); setError(null); setScore(0); setCaught(0); setFalling([]); setEffects([]); setSeconds(GAME_DURATION_SECONDS);
-    countdownStartedAt.current = performance.now(); setCountdown(GAME_COUNTDOWN_SECONDS); setPhase("countdown");
+    countdownClock.current.start(); setCountdown(GAME_COUNTDOWN_SECONDS); setPhase("countdown");
   };
 
   useEffect(() => {
     if (phase !== "countdown") return;
     let animation = 0;
     const frame = (now: number) => {
-      const value = countdownNumber(countdownStartedAt.current, now, GAME_COUNTDOWN_SECONDS);
+      const value = countdownClock.current.displaySeconds();
       setCountdown(value);
       if (value <= 0) { clock.current.start(); lastFrame.current = now; setPhase("playing"); return; }
       animation = requestAnimationFrame(frame);
     };
     animation = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(animation);
+  }, [phase]);
+
+  useEffect(() => {
+    if (navigationPause) pauseGame("exit-confirm"); else clearPauseReason("exit-confirm");
+  }, [clearPauseReason, navigationPause, pauseGame]);
+
+  useEffect(() => {
+    if (!["countdown", "playing", "paused"].includes(phase)) return;
+    const arena = arenaRef.current; if (!arena || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const next = { width: entry.contentRect.width, height: entry.contentRect.height };
+      const previous = arenaSize.current;
+      if (previous.width > 0 && previous.height > 0 && (previous.width !== next.width || previous.height !== next.height)) {
+        const basketWidth = Math.min(150, next.width * .22);
+        if (basketX.current !== null) basketX.current = clampBasketX(resizeCoordinate(basketX.current, previous.width, next.width), next.width, basketWidth);
+        setFalling((current) => current.map((item) => ({ ...item, x: resizeCoordinate(item.x, previous.width, next.width), y: resizeCoordinate(item.y, previous.height, next.height) })));
+        setEffects((current) => current.map((effect) => ({ ...effect, x: resizeCoordinate(effect.x, previous.width, next.width), y: resizeCoordinate(effect.y, previous.height, next.height) })));
+        suppressCollisionFrames.current = 1;
+      }
+      arenaSize.current = next;
+    });
+    observer.observe(arena); return () => observer.disconnect();
   }, [phase]);
 
   useEffect(() => {
@@ -91,10 +141,12 @@ export function GamePage({ onGoToCollection, onGameStateChange }: { onGoToCollec
       const active = direction.current.current(); const move = active === "left" ? -1 : active === "right" ? 1 : 0;
       basketX.current = clampBasketX(basketX.current + move * speed * delta, width, basketWidth);
       const currentBasketX = basketX.current;
+      const suppressCollision = suppressCollisionFrames.current > 0;
+      suppressCollisionFrames.current = Math.max(0, suppressCollisionFrames.current - 1);
       setFalling((current) => current.flatMap((fallingItem) => {
         const y = fallingItem.y + delta * .00038 * height;
         const hit = y + fallingItem.size >= height - 48 && y <= height - 18 && Math.abs(fallingItem.x - currentBasketX) < (basketWidth + fallingItem.size) / 2;
-        if (hit) {
+        if (hit && !suppressCollision) {
           const resolution = outcomes.current.resolve(fallingItem.id, "caught");
           if (resolution.accepted) {
             scoreRef.current += resolution.scoreDelta; caughtRef.current += resolution.caughtDelta; setScore(scoreRef.current); setCaught(caughtRef.current);
@@ -124,14 +176,16 @@ export function GamePage({ onGoToCollection, onGameStateChange }: { onGoToCollec
     const keyMap: Record<string, "left" | "right"> = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right" };
     const down = (event: KeyboardEvent) => { const key = keyMap[event.key]; if (!key || phase !== "playing") return; event.preventDefault(); direction.current.press(event.key, key, event.repeat); };
     const up = (event: KeyboardEvent) => { if (keyMap[event.key]) direction.current.release(event.key); };
-    const pause = () => { if (phase === "playing") { direction.current.clear(); clock.current.pause(); setPhase("paused"); } };
-    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("blur", pause); document.addEventListener("visibilitychange", pause);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", pause); document.removeEventListener("visibilitychange", pause); };
-  }, [phase]);
+    const blur = () => pauseGame("blur");
+    const focus = () => clearPauseReason("blur");
+    const visibility = () => document.hidden ? pauseGame("hidden") : clearPauseReason("hidden");
+    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("blur", blur); window.addEventListener("focus", focus); document.addEventListener("visibilitychange", visibility);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); window.removeEventListener("focus", focus); document.removeEventListener("visibilitychange", visibility); };
+  }, [clearPauseReason, pauseGame, phase]);
 
   if (phase === "loading") return <div className="centered-page"><StatusPanel title="게임을 준비하고 있어요"><p>저장된 물건을 불러오는 중입니다.</p></StatusPanel></div>;
   if (!items.length) return <div className="centered-page"><StatusPanel title="먼저 물건을 모아주세요" action={<Button variant="primary" onClick={onGoToCollection}>채집으로 이동</Button>}><p>등록된 물건이 있어야 캐치 게임을 시작할 수 있습니다.</p></StatusPanel></div>;
   if (phase === "idle") return <div className="game-start centered-page"><div className="game-start__card"><p className="eyebrow">CATCH GAME · 30 SEC</p><h1>떨어지는 물건을 받아보세요</h1><label>닉네임<input value={nickname} maxLength={20} onChange={(event) => setNickname(event.target.value)} placeholder="이름을 입력하세요" /></label>{error && <p className="camera-error">{error}</p>}<Button variant="primary" disabled={!validNickname(nickname)} onClick={start}>게임 시작</Button></div></div>;
   if (phase === "finished" && completed) return <div className="centered-page"><StatusPanel title="게임 종료"><p><strong>{completed.nickname}</strong>님, {completed.caughtCount}개를 받았어요.</p><p className="game-score">{completed.score.toLocaleString()}점</p>{error && <p className="camera-error">{error}</p>}<div className="status-panel__actions"><Button variant="primary" onClick={() => setPhase("idle")}>다시하기</Button><Button onClick={onGoToCollection}>채집으로 이동</Button></div></StatusPanel></div>;
-  return <div className="game-page"><div className="game-hud"><span>닉네임 <strong>{nickname.trim()}</strong></span><span>남은 시간 <strong>{seconds}초</strong></span><span>점수 <strong>{score.toLocaleString()}</strong></span><span>받은 물건 <strong>{caught}</strong></span></div><div ref={arenaRef} className="game-arena">{falling.map((fallingItem) => <img key={fallingItem.id} className="falling-item" src={urls.get(fallingItem.item.id)} alt={fallingItem.item.name} style={{ left: fallingItem.x, top: fallingItem.y, width: fallingItem.size, height: fallingItem.size }} />)}{effects.map((effect) => <span key={effect.id} className="catch-effect" style={{ left: effect.x, top: effect.y }}>+{CATCH_SCORE}</span>)}<div className="basket" style={{ left: basketX.current ?? "50%" }} aria-label="바구니" />{phase === "countdown" && <div className="game-overlay"><strong>{countdown}</strong></div>}{phase === "paused" && <div className="game-overlay"><strong>일시정지</strong><Button variant="primary" onClick={() => { clock.current.resume(); lastFrame.current = performance.now(); setPhase("playing"); }}>재개</Button></div>}</div><p className="game-help">← → 또는 A / D 를 눌러 바구니를 움직이세요</p></div>;
+  return <div className="game-page"><div className="game-hud"><span>닉네임 <strong>{nickname.trim()}</strong></span><span>남은 시간 <strong>{seconds}초</strong></span><span>점수 <strong>{score.toLocaleString()}</strong></span><span>받은 물건 <strong>{caught}</strong></span></div><div ref={arenaRef} className="game-arena">{falling.map((fallingItem) => <img key={fallingItem.id} className="falling-item" src={urls.get(fallingItem.item.id)} alt={fallingItem.item.name} style={{ left: fallingItem.x, top: fallingItem.y, width: fallingItem.size, height: fallingItem.size }} />)}{effects.map((effect) => <span key={effect.id} className="catch-effect" style={{ left: effect.x, top: effect.y }}>+{CATCH_SCORE}</span>)}<div className="basket" style={{ left: basketX.current ?? "50%" }} aria-label="바구니" />{phase === "countdown" && <div className="game-overlay"><strong>{countdown}</strong></div>}{phase === "paused" && <div className="game-overlay"><strong>일시정지</strong><p>{pauseReasons.length ? "창이 다시 활성화될 때까지 기다려 주세요." : "준비되면 게임을 이어가세요."}</p><Button variant="primary" disabled={!pauses.current.canResume()} onClick={resumeGame}>재개</Button></div>}</div><p className="game-help">← → 또는 A / D 를 눌러 바구니를 움직이세요</p></div>;
 }

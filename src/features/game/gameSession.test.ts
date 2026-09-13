@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ActiveGameClock, countdownNumber, createItemOutcomeTracker } from "./gameSession";
+import { ActiveGameClock, countdownNumber, createItemOutcomeTracker, createPauseController, resizeCoordinate } from "./gameSession";
 
 describe("active game clock", () => {
   it("runs for exactly 30 active seconds and excludes paused time", () => {
@@ -32,5 +32,22 @@ describe("item outcome tracker", () => {
   it("rejects every outcome after game end", () => {
     const tracker = createItemOutcomeTracker(); tracker.stop();
     expect(tracker.resolve("late", "caught").accepted).toBe(false);
+  });
+});
+
+describe("game lifecycle", () => {
+  it("keeps overlapping pause reasons and never resumes automatically", () => {
+    const controller = createPauseController();
+    controller.pause("blur", "countdown"); controller.pause("hidden");
+    controller.clearReason("blur");
+    expect(controller.canResume()).toBe(false);
+    expect(controller.targetPhase()).toBe("countdown");
+    controller.clearReason("hidden");
+    expect(controller.canResume()).toBe(true);
+  });
+
+  it("rescales positions proportionally", () => {
+    expect(resizeCoordinate(400, 800, 400)).toBe(200);
+    expect(resizeCoordinate(120, 0, 400)).toBe(120);
   });
 });
