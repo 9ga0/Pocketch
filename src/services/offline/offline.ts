@@ -5,9 +5,13 @@ let registration: ServiceWorkerRegistration | null = null;
 export function registerOfflineWorker(onStatus: (status: OfflineStatus) => void): () => void {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) { onStatus("unsupported"); return () => undefined; }
   let disposed = false;
+  let hadController = Boolean(navigator.serviceWorker.controller);
   const emit = (status: OfflineStatus) => { if (!disposed) onStatus(status); };
   const connectivity = () => emit(navigator.onLine ? "ready" : "offline");
-  const controllerChange = () => window.location.reload();
+  const controllerChange = () => {
+    if (hadController) window.location.reload();
+    hadController = true;
+  };
   window.addEventListener("online", connectivity);
   window.addEventListener("offline", connectivity);
   navigator.serviceWorker.addEventListener("controllerchange", controllerChange);
@@ -19,13 +23,14 @@ export function registerOfflineWorker(onStatus: (status: OfflineStatus) => void)
   }).then(async (workerRegistration) => {
     registration = workerRegistration;
     if (workerRegistration.waiting) emit("update-ready");
-    workerRegistration.addEventListener("updatefound", () => {
-      const worker = workerRegistration.installing;
+    const track = (worker: ServiceWorker | null) => {
       worker?.addEventListener("statechange", () => {
         if (worker.state === "installed" && navigator.serviceWorker.controller) emit("update-ready");
         if (worker.state === "redundant") emit(navigator.serviceWorker.controller ? (navigator.onLine ? "ready" : "offline") : "error");
       });
-    });
+    };
+    track(workerRegistration.installing);
+    workerRegistration.addEventListener("updatefound", () => track(workerRegistration.installing));
     await navigator.serviceWorker.ready;
     connectivity();
   }).catch(() => emit("error"));

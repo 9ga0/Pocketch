@@ -49,9 +49,12 @@ self.addEventListener("install", (event) => {
     const cache = await caches.open(CACHE_NAME);
     try {
       for (let index = 0; index < PRECACHE_URLS.length; index += 4) {
-        await Promise.all(PRECACHE_URLS.slice(index, index + 4).map((path) =>
-          cache.add(new URL(path, self.registration.scope).href),
-        ));
+        await Promise.all(PRECACHE_URLS.slice(index, index + 4).map(async (path) => {
+          const url = new URL(path, self.registration.scope).href;
+          const response = await fetch(url, { cache: "reload" });
+          if (!response.ok) throw new Error(\`Failed to fetch \${url}: \${response.status}\`);
+          await cache.put(url, response);
+        }));
       }
     } catch (error) {
       await caches.delete(CACHE_NAME);
