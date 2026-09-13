@@ -27,6 +27,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .brand { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; font-weight: 850; letter-spacing: .08em; cursor: pointer; }
 .brand__mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #d9ff43; color: #050505; }
 nav { display: flex; align-items: center; gap: 6px; }
+.header-actions { display: flex; align-items: center; gap: 14px; }
+.offline-status { padding: 6px 10px; border: 1px solid #343434; border-radius: 999px; background: #111; color: #999; font-size: .72rem; white-space: nowrap; }
+.offline-status--ready, .offline-status--offline { border-color: #4b5a1d; color: #cfe975; }
+.offline-status--error { border-color: #713838; color: #ffb9b9; }
+.offline-status--action { color: #d9ff43; cursor: pointer; }
 .nav-button { border: 0; border-radius: 999px; background: transparent; padding: 10px 16px; color: #aaa; cursor: pointer; }
 .nav-button:hover { color: #fff; }
 .nav-button[aria-current="page"] { background: #f4f4ef; color: #050505; font-weight: 750; }
@@ -126,6 +131,7 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 @media (max-width: 760px) {
   .app-header { align-items: flex-start; flex-direction: column; gap: 10px; }
   nav { width: 100%; }
+  .header-actions { width: 100%; align-items: flex-start; flex-direction: column; }
   .nav-button { flex: 1; }
   .collection-layout { grid-template-columns: 1fr; }
   .collection-stage { min-height: 58vh; }

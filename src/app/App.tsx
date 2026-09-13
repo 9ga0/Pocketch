@@ -3,6 +3,7 @@ import { CollectionPage } from "../features/collection/CollectionPage";
 import { GamePage } from "../features/game/GamePage";
 import { RankingPage } from "../features/ranking/RankingPage";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { OfflineStatus } from "../components/OfflineStatus";
 
 type AppMode = "collection" | "game" | "ranking";
 const navigation: { mode: AppMode; label: string }[] = [
@@ -26,18 +27,21 @@ export function App() {
           <span className="brand__mark" aria-hidden="true">P</span>
           <span>POCKETCH</span>
         </button>
-        <nav aria-label="주요 메뉴">
-          {navigation.map((item) => (
-            <button
-              key={item.mode}
-              aria-current={mode === item.mode ? "page" : undefined}
-              className="nav-button"
-              onClick={() => navigate(item.mode)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <div className="header-actions">
+          <OfflineStatus />
+          <nav aria-label="주요 메뉴">
+            {navigation.map((item) => (
+              <button
+                key={item.mode}
+                aria-current={mode === item.mode ? "page" : undefined}
+                className="nav-button"
+                onClick={() => navigate(item.mode)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </header>
       <main>
         {mode === "collection" && <CollectionPage />}
