@@ -40,3 +40,24 @@ export function createItemOutcomeTracker() {
     outcomeOf(id: string) { return outcomes.get(id); },
   };
 }
+
+export type ResumablePhase = "countdown" | "playing";
+export type PauseReason = "blur" | "hidden" | "exit-confirm";
+
+export function createPauseController() {
+  const reasons = new Set<PauseReason>();
+  let target: ResumablePhase = "playing";
+  return {
+    pause(reason: PauseReason, phase?: ResumablePhase) { reasons.add(reason); if (phase) target = phase; },
+    clearReason(reason: PauseReason) { reasons.delete(reason); },
+    canResume() { return reasons.size === 0; },
+    targetPhase() { return target; },
+    activeReasons() { return [...reasons]; },
+    reset() { reasons.clear(); target = "playing"; },
+  };
+}
+
+export function resizeCoordinate(value: number, previousSize: number, nextSize: number): number {
+  if (previousSize <= 0 || nextSize <= 0) return value;
+  return value * nextSize / previousSize;
+}

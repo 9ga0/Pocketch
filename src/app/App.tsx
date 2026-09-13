@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CollectionPage } from "../features/collection/CollectionPage";
 import { GamePage } from "../features/game/GamePage";
 import { RankingPage } from "../features/ranking/RankingPage";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 type AppMode = "collection" | "game" | "ranking";
 const navigation: { mode: AppMode; label: string }[] = [
@@ -13,8 +14,9 @@ const navigation: { mode: AppMode; label: string }[] = [
 export function App() {
   const [mode, setMode] = useState<AppMode>("collection");
   const [gameActive, setGameActive] = useState(false);
+  const [pendingMode, setPendingMode] = useState<AppMode | null>(null);
   const navigate = (nextMode: AppMode) => {
-    if (mode === "game" && gameActive && nextMode !== "game" && !window.confirm("진행 중인 게임이 종료됩니다. 이동할까요?")) return;
+    if (mode === "game" && gameActive && nextMode !== "game") { setPendingMode(nextMode); return; }
     setMode(nextMode);
   };
   return (
@@ -39,9 +41,17 @@ export function App() {
       </header>
       <main>
         {mode === "collection" && <CollectionPage />}
-        {mode === "game" && <GamePage onGoToCollection={() => navigate("collection")} onGameStateChange={setGameActive} />}
+        {mode === "game" && <GamePage navigationPause={pendingMode !== null} onGoToCollection={() => navigate("collection")} onGameStateChange={setGameActive} />}
         {mode === "ranking" && <RankingPage />}
       </main>
+      <ConfirmDialog
+        open={pendingMode !== null}
+        title="진행 중인 게임을 종료할까요?"
+        description="현재 판은 랭킹에 저장되지 않으며 선택한 화면으로 이동합니다."
+        confirmLabel="게임 종료 후 이동"
+        onCancel={() => setPendingMode(null)}
+        onConfirm={() => { if (pendingMode) setMode(pendingMode); setPendingMode(null); }}
+      />
     </div>
   );
 }
