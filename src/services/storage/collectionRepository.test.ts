@@ -109,9 +109,35 @@ describe("collectionRepository", () => {
   });
 
   it("clears game results independently", async () => {
+    await collectionRepository.addItem(item());
+    await collectionRepository.updateSettings({ id: "collection-settings", scaleLevel: 2, globalScale: 0.49 });
     await collectionRepository.addGameResult({ id: "result-1", nickname: "포켓", score: 100, caughtCount: 1, playedAt: "2026-09-12T10:00:00.000Z" });
     await collectionRepository.resetResults();
     expect(await collectionRepository.getTopResults()).toEqual([]);
+    expect(await collectionRepository.getItems()).toHaveLength(1);
+    expect((await collectionRepository.getSettings()).scaleLevel).toBe(2);
+  });
+
+  it("keeps all results while only displaying the top ten", async () => {
+    for (let index = 0; index < 12; index += 1) {
+      await collectionRepository.addGameResult({ id: `all-${index}`, nickname: "같은 이름", score: 0, caughtCount: 0, playedAt: "2026-09-12T10:00:00.000Z" });
+    }
+    expect(await collectionRepository.getGameResults()).toHaveLength(12);
+    expect(await collectionRepository.getTopResults()).toHaveLength(10);
+  });
+
+  it("retries the same completed session idempotently", async () => {
+    const result = { id: "same-session", nickname: "포켓", score: 200, caughtCount: 2, playedAt: "2026-09-12T10:00:00.000Z" };
+    await Promise.all([collectionRepository.addGameResult(result), collectionRepository.addGameResult(result)]);
+    expect(await collectionRepository.getGameResults()).toEqual([result]);
+  });
+
+  it("serializes an in-flight result save before ranking deletion", async () => {
+    const result = { id: "pending-session", nickname: "포켓", score: 100, caughtCount: 1, playedAt: "2026-09-12T10:00:00.000Z" };
+    const pendingSave = collectionRepository.addGameResult(result);
+    const pendingReset = collectionRepository.resetResults();
+    await Promise.all([pendingSave, pendingReset]);
+    expect(await collectionRepository.getGameResults()).toEqual([]);
   });
 });
 

@@ -41,7 +41,7 @@ export function App() {
       </header>
       <main>
         {mode === "collection" && <CollectionPage />}
-        {mode === "game" && <GamePage navigationPause={pendingMode !== null} onGoToCollection={() => navigate("collection")} onGameStateChange={setGameActive} />}
+        {mode === "game" && <GamePage navigationPause={pendingMode !== null} onGoToCollection={() => navigate("collection")} onGoToRanking={() => navigate("ranking")} onGameStateChange={setGameActive} />}
         {mode === "ranking" && <RankingPage />}
       </main>
       <ConfirmDialog
