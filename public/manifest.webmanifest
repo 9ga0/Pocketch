@@ -1,0 +1,14 @@
+{
+  "name": "Pocketch",
+  "short_name": "Pocketch",
+  "description": "내 물건을 촬영하고 쌓고 받아내는 현장 참여형 웹게임",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    { "src": "./icons/pocketch.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icons/pocketch.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
