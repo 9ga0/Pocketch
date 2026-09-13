@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CollectionPage } from "../features/collection/CollectionPage";
+import { SharedSessionPage } from "../features/collection/SharedSessionPage";
 import { GamePage } from "../features/game/GamePage";
 import { RankingPage } from "../features/ranking/RankingPage";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -12,7 +13,12 @@ const navigation: { mode: AppMode; label: string }[] = [
   { mode: "ranking", label: "랭킹" },
 ];
 
+function readSharedSessionId(): string | null {
+  return new URLSearchParams(window.location.search).get("session");
+}
+
 export function App() {
+  const [sharedSessionId, setSharedSessionId] = useState<string | null>(() => readSharedSessionId());
   const [mode, setMode] = useState<AppMode>("collection");
   const [gameActive, setGameActive] = useState(false);
   const [pendingMode, setPendingMode] = useState<AppMode | null>(null);
@@ -20,6 +26,30 @@ export function App() {
     if (mode === "game" && gameActive && nextMode !== "game") { setPendingMode(nextMode); return; }
     setMode(nextMode);
   };
+  const exitSharedSession = () => {
+    window.history.replaceState(null, "", window.location.pathname);
+    setSharedSessionId(null);
+  };
+
+  if (sharedSessionId) {
+    return (
+      <div className="app-shell">
+        <header className="app-header">
+          <button className="brand" onClick={exitSharedSession}>
+            <span className="brand__mark" aria-hidden="true">P</span>
+            <span>POCKETCH</span>
+          </button>
+          <div className="header-actions">
+            <OfflineStatus />
+          </div>
+        </header>
+        <main>
+          <SharedSessionPage sessionId={sharedSessionId} onExit={exitSharedSession} />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="app-header">

@@ -9,8 +9,10 @@ import {
   deletePocketchDatabase,
 } from "../../services/storage/collectionRepository";
 import { StorageError } from "../../services/storage/errors";
-import { CameraCapture } from "./CameraCapture";
-import { ItemRegistration } from "./ItemRegistration";
+import { mirrorDeleteItem, mirrorItem, revokeSession } from "../../services/sync/sessionSync";
+import { CaptureModal } from "./CaptureModal";
+import { ShareSessionPanel } from "./ShareSessionPanel";
+import { TiltControl } from "./TiltControl";
 import { CollectionSceneView } from "../../engine/CollectionSceneView";
 
 type LoadState =
@@ -28,11 +30,9 @@ export function CollectionPage() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [captureForRemoval, setCaptureForRemoval] = useState<Blob | null>(null);
-  const [cameraSession, setCameraSession] = useState(0);
+  const [addItemOpen, setAddItemOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLElement>(null);
-  const discardCapture = useCallback(() => setCaptureForRemoval(null), []);
 
   const load = useCallback(async () => {
     setState({ status: "loading" });
@@ -53,11 +53,18 @@ export function CollectionPage() {
     if (event.type === "item:detail-requested") setDetailId(event.itemId);
   }), []);
 
+  const updateSettings = async (nextSettings: CollectionSettings) => {
+    await collectionRepository.updateSettings(nextSettings);
+    setState((current) => current.status === "ready" ? { ...current, settings: nextSettings } : current);
+  };
+
   const resetCollection = async () => {
     setResetting(true);
+    const sessionId = state.status === "ready" ? state.settings.sessionId : undefined;
     try {
       await collectionRepository.resetCollection();
       collectionSceneBridge.dispatch({ type: "collection:reset" });
+      if (sessionId) void revokeSession(sessionId).catch(() => undefined);
       setResetOpen(false);
       await load();
     } catch (error) {
@@ -83,17 +90,13 @@ export function CollectionPage() {
   };
 
   const finishRegistration = (item: CollectedItem) => {
+    const sessionId = state.status === "ready" ? state.settings.sessionId : undefined;
     setState((current) => current.status === "ready"
       ? { ...current, items: [...current.items, item] }
       : current);
     collectionSceneBridge.dispatch({ type: "item:add", item });
-    setCaptureForRemoval(null);
-    setCameraSession((current) => current + 1);
-  };
-
-  const cancelRegistration = () => {
-    setCaptureForRemoval(null);
-    setCameraSession((current) => current + 1);
+    setAddItemOpen(false);
+    if (sessionId) void mirrorItem(sessionId, item).catch(() => undefined);
   };
 
   if (state.status === "loading") {
@@ -140,29 +143,22 @@ export function CollectionPage() {
           <p className="eyebrow">COLLECTION</p>
           <h1 id="collection-title">내 물건을 모아보세요</h1>
           <p className="lead">사진은 기기 안에서 배경을 지운 뒤 투명 이미지로 저장됩니다.</p>
+          <Button variant="primary" onClick={() => setAddItemOpen(true)}>물건 추가</Button>
+          <TiltControl />
         </div>
-        {captureForRemoval ? (
-          <ItemRegistration
-            source={captureForRemoval}
-            onCancel={cancelRegistration}
-            onSaved={finishRegistration}
-            onManageItems={() => sidebarRef.current?.focus()}
-          />
-        ) : (
-          <>
-            <CollectionSceneView items={state.items} settings={state.settings} />
-            <CameraCapture
-              key={cameraSession}
-              onBackgroundRemovalRequested={setCaptureForRemoval}
-              onSourceDiscarded={discardCapture}
-            />
-          </>
-        )}
+        <CollectionSceneView items={state.items} settings={state.settings} />
       </section>
+      <CaptureModal
+        open={addItemOpen}
+        onClose={() => setAddItemOpen(false)}
+        onSaved={finishRegistration}
+        onManageItems={() => sidebarRef.current?.focus()}
+      />
 
       <aside ref={sidebarRef} className="collection-sidebar" aria-label="채집 정보" tabIndex={-1}>
         <div className="metric"><span>모은 물건</span><strong>{state.items.length}</strong></div>
         <div className="metric"><span>축소 단계</span><strong>{state.settings.scaleLevel}</strong></div>
+        <ShareSessionPanel settings={state.settings} onSettingsChange={updateSettings} />
         {state.items.length === 0 ? (
           <StatusPanel title="아직 모은 물건이 없어요">
             <p>물건을 촬영하고 이름을 붙이면 이곳에 바로 쌓입니다.</p>
@@ -199,13 +195,30 @@ export function CollectionPage() {
       {(() => {
         const item = detailId ? state.items.find((candidate) => candidate.id === detailId) : undefined;
         if (!item) return null;
-        return <ItemDetailDialog item={item} onClose={() => setDetailId(null)} onDeleted={() => { setDetailId(null); void load(); }} />;
+        return (
+          <ItemDetailDialog
+            item={item}
+            sessionId={state.settings.sessionId}
+            onClose={() => setDetailId(null)}
+            onDeleted={() => { setDetailId(null); void load(); }}
+          />
+        );
       })()}
     </div>
   );
 }
 
-function ItemDetailDialog({ item, onClose, onDeleted }: { item: CollectedItem; onClose: () => void; onDeleted: () => void }) {
+function ItemDetailDialog({
+  item,
+  sessionId,
+  onClose,
+  onDeleted,
+}: {
+  item: CollectedItem;
+  sessionId?: string;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const imageUrl = useMemo(() => URL.createObjectURL(item.image), [item]);
@@ -215,6 +228,7 @@ function ItemDetailDialog({ item, onClose, onDeleted }: { item: CollectedItem; o
     try {
       await collectionRepository.deleteItem(item.id);
       collectionSceneBridge.dispatch({ type: "item:remove", itemId: item.id });
+      if (sessionId) void mirrorDeleteItem(sessionId, item.id).catch(() => undefined);
       onDeleted();
     } finally {
       setDeleting(false);

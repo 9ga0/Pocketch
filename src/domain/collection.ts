@@ -12,6 +12,7 @@ export interface CollectionSettings {
   id: "collection-settings";
   scaleLevel: number;
   globalScale: number;
+  sessionId?: string;
 }
 
 export interface GameResult {

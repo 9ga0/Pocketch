@@ -3,7 +3,9 @@ import type { CollectedItem } from "../domain/collection";
 export type CollectionSceneCommand =
   | { type: "item:add"; item: CollectedItem }
   | { type: "item:remove"; itemId: string }
-  | { type: "collection:reset" };
+  | { type: "collection:reset" }
+  | { type: "physics:gravity"; x: number; y: number }
+  | { type: "physics:shake" };
 
 export type CollectionSceneEvent =
   | { type: "scene:ready" }

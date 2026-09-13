@@ -21,6 +21,10 @@ export function CollectionSceneView({ items, settings }: Props) {
     const urls = new Map<string, string>();
 
     class CollectionScene extends Phaser.Scene {
+      private static readonly MAX_VELOCITY = 22;
+      private static readonly DRAG_THRESHOLD = 6;
+      private static readonly MAX_GRAVITY = 2;
+
       private sprites = new Map<string, Phaser.Physics.Matter.Image>();
       private shrinkCheckPending = false;
       private lastSize = { width: 0, height: 0 };
@@ -50,7 +54,33 @@ export function CollectionSceneView({ items, settings }: Props) {
         if (command.type === "item:remove") this.removeItem(command.itemId);
         if (command.type === "collection:reset") this.sprites.forEach((sprite) => sprite.destroy());
         if (command.type === "collection:reset") this.sprites.clear();
+        if (command.type === "physics:gravity") this.setGravity(command.x, command.y);
+        if (command.type === "physics:shake") this.applyShakeImpulse();
       };
+
+      private setGravity(x: number, y: number) {
+        const limit = CollectionScene.MAX_GRAVITY;
+        this.matter.world.setGravity(
+          Phaser.Math.Clamp(x, -limit, limit),
+          Phaser.Math.Clamp(y, -limit, limit),
+        );
+      }
+
+      private applyShakeImpulse() {
+        this.sprites.forEach((sprite) => {
+          const body = sprite.body as MatterJS.BodyType | null;
+          const velocity = body?.velocity ?? { x: 0, y: 0 };
+          const angle = Math.random() * Math.PI * 2;
+          const kick = 6 + Math.random() * 6;
+          this.setSpriteVelocity(sprite, velocity.x + Math.cos(angle) * kick, velocity.y + Math.sin(angle) * kick);
+        });
+      }
+
+      private setSpriteVelocity(sprite: Phaser.Physics.Matter.Image, x: number, y: number) {
+        const speed = Math.hypot(x, y);
+        const scale = speed > CollectionScene.MAX_VELOCITY ? CollectionScene.MAX_VELOCITY / speed : 1;
+        sprite.setVelocity(x * scale, y * scale);
+      }
 
       private addItem = (item: CollectedItem) => {
         if (!this.textures.exists(item.id)) {
@@ -69,18 +99,74 @@ export function CollectionSceneView({ items, settings }: Props) {
         const sprite = this.matter.add.image(x, Math.max(size.height, 36), item.id, undefined, { restitution: 0.18, friction: 0.8, frictionAir: 0.02 });
         sprite.setDisplaySize(size.width, size.height);
         sprite.setInteractive({ useHandCursor: true });
-        this.installLongPress(sprite, item.id);
+        this.installPointerInteractions(sprite, item.id);
         this.sprites.set(item.id, sprite);
       };
 
-      private installLongPress(sprite: Phaser.Physics.Matter.Image, itemId: string) {
-        let timer: number | undefined;
-        const cancel = () => { if (timer !== undefined) window.clearTimeout(timer); timer = undefined; };
-        sprite.on(Phaser.Input.Events.POINTER_DOWN, () => { timer = window.setTimeout(() => { timer = undefined; collectionSceneBridge.emit({ type: "item:detail-requested", itemId }); }, 600); });
-        sprite.on(Phaser.Input.Events.POINTER_UP, cancel);
-        sprite.on(Phaser.Input.Events.POINTER_OUT, cancel);
-        sprite.on(Phaser.Input.Events.POINTER_MOVE, cancel);
-        sprite.on(Phaser.Input.Events.GAME_OUT, cancel);
+      /**
+       * 길게 누르면 상세 모달을 열고, 임계값 이상 이동하면 드래그로 전환한다.
+       * 기울기 센서가 없는 환경(데스크톱, 권한 거부)에서도 손으로 채집물을 섞을 수 있는 대체 동작이다.
+       */
+      private installPointerInteractions(sprite: Phaser.Physics.Matter.Image, itemId: string) {
+        let longPressTimer: number | undefined;
+        let pointerDownAt: { x: number; y: number } | null = null;
+        let dragging = false;
+        let lastPointer = { x: 0, y: 0 };
+        let lastMoveAt = 0;
+        let lastVelocity = { x: 0, y: 0 };
+
+        const clearLongPress = () => {
+          if (longPressTimer !== undefined) window.clearTimeout(longPressTimer);
+          longPressTimer = undefined;
+        };
+
+        const endDrag = () => {
+          if (!dragging) return;
+          dragging = false;
+          sprite.setStatic(false);
+          this.setSpriteVelocity(sprite, lastVelocity.x, lastVelocity.y);
+        };
+
+        const finish = () => {
+          clearLongPress();
+          endDrag();
+          pointerDownAt = null;
+        };
+
+        sprite.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+          pointerDownAt = { x: pointer.worldX, y: pointer.worldY };
+          lastPointer = { ...pointerDownAt };
+          lastVelocity = { x: 0, y: 0 };
+          lastMoveAt = pointer.time;
+          longPressTimer = window.setTimeout(() => {
+            longPressTimer = undefined;
+            collectionSceneBridge.emit({ type: "item:detail-requested", itemId });
+          }, 600);
+        });
+
+        sprite.on(Phaser.Input.Events.POINTER_MOVE, (pointer: Phaser.Input.Pointer) => {
+          if (!pointerDownAt) return;
+          const dx = pointer.worldX - pointerDownAt.x;
+          const dy = pointer.worldY - pointerDownAt.y;
+          if (!dragging && Math.hypot(dx, dy) > CollectionScene.DRAG_THRESHOLD) {
+            clearLongPress();
+            dragging = true;
+            sprite.setStatic(true);
+          }
+          if (!dragging) return;
+          const dt = Math.max(1, pointer.time - lastMoveAt);
+          lastVelocity = {
+            x: ((pointer.worldX - lastPointer.x) / dt) * 16,
+            y: ((pointer.worldY - lastPointer.y) / dt) * 16,
+          };
+          sprite.setPosition(pointer.worldX, pointer.worldY);
+          lastPointer = { x: pointer.worldX, y: pointer.worldY };
+          lastMoveAt = pointer.time;
+        });
+
+        sprite.on(Phaser.Input.Events.POINTER_UP, finish);
+        sprite.on(Phaser.Input.Events.POINTER_OUT, finish);
+        sprite.on(Phaser.Input.Events.GAME_OUT, finish);
       }
 
       private removeItem(itemId: string) { this.sprites.get(itemId)?.destroy(); this.sprites.delete(itemId); }

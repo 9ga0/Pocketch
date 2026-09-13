@@ -82,6 +82,11 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .item-list__button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .item-list__button:hover strong { color: #d9ff43; }
 .item-list time { color: #888; font-size: .8rem; }
+.share-panel { display: flex; flex-direction: column; gap: 10px; padding-bottom: 16px; border-bottom: 1px solid #272727; }
+.share-panel--disabled p { margin: 0; }
+.share-panel__link { display: flex; gap: 8px; }
+.share-panel__link input { flex: 1; min-width: 0; border: 1px solid #383838; border-radius: 10px; padding: 8px 10px; background: #171717; color: #f4f4ef; font-size: .82rem; }
+.share-panel__error { margin: 0; color: #ff9b9b; font-size: .82rem; }
 .centered-page { width: 100%; min-height: calc(100vh - 73px); display: grid; place-items: center; padding: 24px; }
 .game-start__card { width: min(100%, 700px); padding: clamp(28px, 6vw, 72px); border: 1px solid #2a2a2a; border-radius: 24px; background: #0d0d0d; }
 .game-start__card h1 { font-size: clamp(2.6rem, 7vw, 5.5rem); }
@@ -124,6 +129,7 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .button--danger { border-color: #713838; background: #281313; color: #ffb9b9; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / .78); }
 .dialog { width: min(100%, 480px); padding: 28px; border: 1px solid #393939; border-radius: 20px; background: #121212; box-shadow: 0 24px 90px rgb(0 0 0 / .65); }
+.dialog.capture-modal { width: min(100%, 960px); }
 .dialog__close { float: right; border: 0; background: transparent; color: #aaa; font-size: 1.8rem; cursor: pointer; }
 .item-detail img { display: block; width: min(100%, 260px); height: 190px; margin: 0 auto 20px; object-fit: contain; background: #eee; border-radius: 12px; }
 .item-detail time { color: #888; font-size: .82rem; }
