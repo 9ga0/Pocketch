@@ -9,8 +9,9 @@ import { CATCH_SCORE, GAME_COUNTDOWN_SECONDS, GAME_DURATION_SECONDS, clampBasket
 type Phase = "loading" | "idle" | "countdown" | "playing" | "paused" | "finished";
 type FallingItem = { id: string; x: number; y: number; size: number; item: CollectedItem };
 type CatchEffect = { id: string; x: number; y: number };
+type SaveStatus = "idle" | "saving" | "success" | "failed";
 
-export function GamePage({ onGoToCollection, onGameStateChange, navigationPause = false }: { onGoToCollection: () => void; onGameStateChange?: (active: boolean) => void; navigationPause?: boolean }) {
+export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, navigationPause = false }: { onGoToCollection: () => void; onGoToRanking: () => void; onGameStateChange?: (active: boolean) => void; navigationPause?: boolean }) {
   const [items, setItems] = useState<CollectedItem[]>([]);
   const [phase, setPhase] = useState<Phase>("loading");
   const [nickname, setNickname] = useState("");
@@ -22,6 +23,7 @@ export function GamePage({ onGoToCollection, onGameStateChange, navigationPause 
   const [effects, setEffects] = useState<CatchEffect[]>([]);
   const [completed, setCompleted] = useState<GameResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [pauseReasons, setPauseReasons] = useState<PauseReason[]>([]);
   const arenaRef = useRef<HTMLDivElement>(null);
   const basketX = useRef<number | null>(null);
@@ -41,6 +43,7 @@ export function GamePage({ onGoToCollection, onGameStateChange, navigationPause 
   const phaseRef = useRef<Phase>(phase);
   const arenaSize = useRef({ width: 0, height: 0 });
   const suppressCollisionFrames = useRef(0);
+  const saving = useRef(false);
   phaseRef.current = phase;
 
   const urls = useMemo(() => new Map(items.map((item) => [item.id, URL.createObjectURL(item.image)])), [items]);
@@ -49,18 +52,24 @@ export function GamePage({ onGoToCollection, onGameStateChange, navigationPause 
     collectionRepository.getItems().then((loaded) => { setItems(loaded); setPhase("idle"); }).catch(() => { setError("저장된 물건을 불러오지 못했습니다."); setPhase("idle"); });
     return () => { outcomes.current.stop(); direction.current.clear(); effectTimers.current.forEach((timer) => window.clearTimeout(timer)); };
   }, []);
-  useEffect(() => { onGameStateChange?.(["countdown", "playing", "paused"].includes(phase)); }, [onGameStateChange, phase]);
-  useEffect(() => {
-    if (!completed) return;
-    collectionRepository.addGameResult(completed).catch(() => setError("결과를 저장하지 못했습니다. 랭킹에서 다시 확인해 주세요."));
-  }, [completed]);
+  useEffect(() => { onGameStateChange?.(["countdown", "playing", "paused"].includes(phase) || (phase === "finished" && saveStatus !== "success")); }, [onGameStateChange, phase, saveStatus]);
+
+  const saveResult = useCallback(async (result: GameResult) => {
+    if (saving.current) return;
+    saving.current = true; setSaveStatus("saving"); setError(null);
+    try { await collectionRepository.addGameResult(result); setSaveStatus("success"); }
+    catch { setSaveStatus("failed"); setError("결과를 저장하지 못했습니다. 같은 기록으로 다시 시도할 수 있습니다."); }
+    finally { saving.current = false; }
+  }, []);
+
+  useEffect(() => { if (completed && saveStatus === "idle") void saveResult(completed); }, [completed, saveResult, saveStatus]);
 
   const finish = useCallback(() => {
     if (finished.current) return;
     finished.current = true;
     outcomes.current.stop(); clock.current.stop(); direction.current.clear();
     const result: GameResult = { id: sessionId.current, nickname: nickname.trim(), score: scoreRef.current, caughtCount: caughtRef.current, playedAt: new Date().toISOString() };
-    setCompleted(result); setScore(result.score); setCaught(result.caughtCount); setFalling([]); setPhase("finished");
+    setSaveStatus("idle"); setCompleted(result); setScore(result.score); setCaught(result.caughtCount); setFalling([]); setPhase("finished");
   }, [nickname]);
 
   const pauseGame = useCallback((reason: PauseReason) => {
@@ -91,6 +100,12 @@ export function GamePage({ onGoToCollection, onGameStateChange, navigationPause 
     effectTimers.current.forEach((timer) => window.clearTimeout(timer)); effectTimers.current.clear();
     outcomes.current.reset(); scoreRef.current = 0; caughtRef.current = 0; setCompleted(null); setError(null); setScore(0); setCaught(0); setFalling([]); setEffects([]); setSeconds(GAME_DURATION_SECONDS);
     countdownClock.current.start(); setCountdown(GAME_COUNTDOWN_SECONDS); setPhase("countdown");
+  };
+
+  const replay = async () => {
+    setPhase("loading"); setError(null);
+    try { const latestItems = await collectionRepository.getItems(); setItems(latestItems); setPhase("idle"); }
+    catch { setError("최신 채집물을 불러오지 못했습니다. 다시 시도해 주세요."); setPhase("finished"); }
   };
 
   useEffect(() => {
@@ -186,6 +201,6 @@ export function GamePage({ onGoToCollection, onGameStateChange, navigationPause 
   if (phase === "loading") return <div className="centered-page"><StatusPanel title="게임을 준비하고 있어요"><p>저장된 물건을 불러오는 중입니다.</p></StatusPanel></div>;
   if (!items.length) return <div className="centered-page"><StatusPanel title="먼저 물건을 모아주세요" action={<Button variant="primary" onClick={onGoToCollection}>채집으로 이동</Button>}><p>등록된 물건이 있어야 캐치 게임을 시작할 수 있습니다.</p></StatusPanel></div>;
   if (phase === "idle") return <div className="game-start centered-page"><div className="game-start__card"><p className="eyebrow">CATCH GAME · 30 SEC</p><h1>떨어지는 물건을 받아보세요</h1><label>닉네임<input value={nickname} maxLength={20} onChange={(event) => setNickname(event.target.value)} placeholder="이름을 입력하세요" /></label>{error && <p className="camera-error">{error}</p>}<Button variant="primary" disabled={!validNickname(nickname)} onClick={start}>게임 시작</Button></div></div>;
-  if (phase === "finished" && completed) return <div className="centered-page"><StatusPanel title="게임 종료"><p><strong>{completed.nickname}</strong>님, {completed.caughtCount}개를 받았어요.</p><p className="game-score">{completed.score.toLocaleString()}점</p>{error && <p className="camera-error">{error}</p>}<div className="status-panel__actions"><Button variant="primary" onClick={() => setPhase("idle")}>다시하기</Button><Button onClick={onGoToCollection}>채집으로 이동</Button></div></StatusPanel></div>;
+  if (phase === "finished" && completed) return <div className="centered-page"><StatusPanel title="게임 종료"><p><strong>{completed.nickname}</strong>님, {completed.caughtCount}개를 받았어요.</p><p className="game-score">{completed.score.toLocaleString()}점</p><p className={`result-save result-save--${saveStatus}`} aria-live="polite">{saveStatus === "saving" && "결과를 저장하고 있어요…"}{saveStatus === "success" && "랭킹에 저장됐습니다."}{saveStatus === "failed" && error}</p><div className="status-panel__actions">{saveStatus === "failed" && <Button variant="primary" onClick={() => void saveResult(completed)}>저장 다시 시도</Button>}<Button variant={saveStatus === "success" ? "primary" : "secondary"} disabled={saveStatus === "saving"} onClick={() => void replay()}>{saveStatus === "failed" ? "저장하지 않고 다시하기" : "다시하기"}</Button><Button disabled={saveStatus !== "success"} onClick={onGoToRanking}>랭킹 보기</Button><Button disabled={saveStatus === "saving"} onClick={onGoToCollection}>채집으로 이동</Button></div></StatusPanel></div>;
   return <div className="game-page"><div className="game-hud"><span>닉네임 <strong>{nickname.trim()}</strong></span><span>남은 시간 <strong>{seconds}초</strong></span><span>점수 <strong>{score.toLocaleString()}</strong></span><span>받은 물건 <strong>{caught}</strong></span></div><div ref={arenaRef} className="game-arena">{falling.map((fallingItem) => <img key={fallingItem.id} className="falling-item" src={urls.get(fallingItem.item.id)} alt={fallingItem.item.name} style={{ left: fallingItem.x, top: fallingItem.y, width: fallingItem.size, height: fallingItem.size }} />)}{effects.map((effect) => <span key={effect.id} className="catch-effect" style={{ left: effect.x, top: effect.y }}>+{CATCH_SCORE}</span>)}<div className="basket" style={{ left: basketX.current ?? "50%" }} aria-label="바구니" />{phase === "countdown" && <div className="game-overlay"><strong>{countdown}</strong></div>}{phase === "paused" && <div className="game-overlay"><strong>일시정지</strong><p>{pauseReasons.length ? "창이 다시 활성화될 때까지 기다려 주세요." : "준비되면 게임을 이어가세요."}</p><Button variant="primary" disabled={!pauses.current.canResume()} onClick={resumeGame}>재개</Button></div>}</div><p className="game-help">← → 또는 A / D 를 눌러 바구니를 움직이세요</p></div>;
 }

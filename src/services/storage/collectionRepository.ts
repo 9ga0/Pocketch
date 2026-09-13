@@ -10,6 +10,13 @@ export const DATABASE_VERSION = 2;
 const ITEM_STORE = "collected-items";
 const SETTINGS_STORE = "collection-settings";
 const RESULTS_STORE = "game-results";
+let resultOperationQueue: Promise<void> = Promise.resolve();
+
+function serializeResultOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = resultOperationQueue.then(operation, operation);
+  resultOperationQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -124,28 +131,36 @@ export const collectionRepository = {
   },
 
   async addGameResult(result: GameResult): Promise<void> {
-    return useDatabase("write", async (database) => {
+    return serializeResultOperation(() => useDatabase("write", async (database) => {
       const transaction = database.transaction(RESULTS_STORE, "readwrite");
-      transaction.objectStore(RESULTS_STORE).add(result);
+      transaction.objectStore(RESULTS_STORE).put(result);
       await transactionDone(transaction);
-    });
+    }));
   },
 
-  async getTopResults(limit = 10): Promise<GameResult[]> {
+  async getGameResults(): Promise<GameResult[]> {
+    await resultOperationQueue;
     return useDatabase("read", async (database) => {
       const transaction = database.transaction(RESULTS_STORE, "readonly");
       const results = await requestResult<GameResult[]>(transaction.objectStore(RESULTS_STORE).getAll());
       await transactionDone(transaction);
-      return results.sort((left, right) => right.score - left.score || left.playedAt.localeCompare(right.playedAt)).slice(0, limit);
+      return results
+        .map((result, index) => ({ result, index }))
+        .sort((left, right) => right.result.score - left.result.score || left.result.playedAt.localeCompare(right.result.playedAt) || left.index - right.index)
+        .map(({ result }) => result);
     });
   },
 
+  async getTopResults(limit = 10): Promise<GameResult[]> {
+    return (await this.getGameResults()).slice(0, Math.max(0, limit));
+  },
+
   async resetResults(): Promise<void> {
-    return useDatabase("reset", async (database) => {
+    return serializeResultOperation(() => useDatabase("reset", async (database) => {
       const transaction = database.transaction(RESULTS_STORE, "readwrite");
       transaction.objectStore(RESULTS_STORE).clear();
       await transactionDone(transaction);
-    });
+    }));
   },
 
   async resetCollection(): Promise<void> {
