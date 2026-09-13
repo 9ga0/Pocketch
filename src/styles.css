@@ -87,6 +87,7 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .game-hud strong { margin-left: 6px; color: #f4f4ef; font-size: 1.35rem; }
 .game-arena { position: relative; width: min(100%, 1000px); height: min(72vh, 700px); min-height: 420px; margin: auto; overflow: hidden; border: 1px solid #2a2a2a; border-radius: 20px; background: linear-gradient(#111, #070707); }
 .falling-item { position: absolute; z-index: 1; object-fit: contain; transform: translateX(-50%); pointer-events: none; }
+.catch-effect { position: absolute; z-index: 2; color: #d9ff43; font-size: 1.25rem; font-weight: 900; transform: translate(-50%, -50%); animation: catch-pop .42s ease-out forwards; pointer-events: none; }
 .basket { position: absolute; z-index: 2; bottom: 16px; width: clamp(100px, 20%, 150px); height: 36px; border: 3px solid #d9ff43; border-top: 0; border-radius: 0 0 30px 30px; transform: translateX(-50%); background: rgb(217 255 67 / .14); }
 .game-overlay { position: absolute; inset: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: 18px; background: rgb(0 0 0 / .65); }
 .game-overlay strong { font-size: clamp(4rem, 12vw, 9rem); color: #d9ff43; }
@@ -134,3 +135,4 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes catch-pop { from { opacity: 1; transform: translate(-50%, 0) scale(.8); } to { opacity: 0; transform: translate(-50%, -44px) scale(1.25); } }
