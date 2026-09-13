@@ -38,6 +38,8 @@ h1, h2, p { margin-top: 0; }
 h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem); line-height: .92; letter-spacing: -.065em; }
 .lead { max-width: 540px; color: #aaa; line-height: 1.7; }
 .camera-card { align-self: center; width: min(100%, 820px); border: 1px solid #2a2a2a; border-radius: 24px; padding: 14px; background: #0d0d0d; box-shadow: 0 24px 80px rgb(0 0 0 / .35); }
+.collection-scene { width: 100%; height: min(52vh, 560px); min-height: 320px; margin: 18px 0; border: 1px solid #252525; border-radius: 18px; overflow: hidden; background: radial-gradient(circle at 50% 0%, #171717, #080808 70%); }
+.collection-scene canvas { display: block; }
 .camera-card--centered { min-height: 340px; display: grid; place-content: center; justify-items: center; text-align: center; }
 .camera-card--centered p { margin: 8px 0 0; color: #888; }
 .camera-loader { width: 34px; height: 34px; margin-bottom: 18px; border: 3px solid #333; border-top-color: #d9ff43; border-radius: 50%; animation: spin .8s linear infinite; }
@@ -72,8 +74,24 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .metric strong { color: #f4f4ef; font-size: 2rem; }
 .item-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 40vh; overflow: auto; }
 .item-list li { display: flex; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 10px; background: #161616; }
+.item-list__button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.item-list__button:hover strong { color: #d9ff43; }
 .item-list time { color: #888; font-size: .8rem; }
 .centered-page { width: 100%; min-height: calc(100vh - 73px); display: grid; place-items: center; padding: 24px; }
+.game-start__card { width: min(100%, 700px); padding: clamp(28px, 6vw, 72px); border: 1px solid #2a2a2a; border-radius: 24px; background: #0d0d0d; }
+.game-start__card h1 { font-size: clamp(2.6rem, 7vw, 5.5rem); }
+.game-start__card label { display: grid; gap: 8px; max-width: 420px; margin: 28px 0 18px; color: #ccc; font-weight: 700; }
+.game-start__card input { border: 1px solid #383838; border-radius: 10px; padding: 13px; background: #171717; color: #fff; }
+.game-page { width: 100%; padding: clamp(18px, 4vw, 48px); }
+.game-hud { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; max-width: 1000px; margin: 0 auto 16px; color: #aaa; }
+.game-hud strong { margin-left: 6px; color: #f4f4ef; font-size: 1.35rem; }
+.game-arena { position: relative; width: min(100%, 1000px); height: min(72vh, 700px); min-height: 420px; margin: auto; overflow: hidden; border: 1px solid #2a2a2a; border-radius: 20px; background: linear-gradient(#111, #070707); }
+.falling-item { position: absolute; z-index: 1; object-fit: contain; transform: translateX(-50%); pointer-events: none; }
+.basket { position: absolute; z-index: 2; bottom: 16px; width: clamp(100px, 20%, 150px); height: 36px; border: 3px solid #d9ff43; border-top: 0; border-radius: 0 0 30px 30px; transform: translateX(-50%); background: rgb(217 255 67 / .14); }
+.game-overlay { position: absolute; inset: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: 18px; background: rgb(0 0 0 / .65); }
+.game-overlay strong { font-size: clamp(4rem, 12vw, 9rem); color: #d9ff43; }
+.game-help { text-align: center; color: #888; }
+.game-score { color: #d9ff43 !important; font-size: 3rem; font-weight: 850; }
 .status-panel { width: min(100%, 560px); padding: 24px; border: 1px solid #2a2a2a; border-radius: 18px; background: #111; }
 .status-panel h2 { margin-bottom: 8px; }
 .status-panel p { color: #aaa; line-height: 1.6; }
@@ -87,6 +105,9 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .button--danger { border-color: #713838; background: #281313; color: #ffb9b9; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / .78); }
 .dialog { width: min(100%, 480px); padding: 28px; border: 1px solid #393939; border-radius: 20px; background: #121212; box-shadow: 0 24px 90px rgb(0 0 0 / .65); }
+.dialog__close { float: right; border: 0; background: transparent; color: #aaa; font-size: 1.8rem; cursor: pointer; }
+.item-detail img { display: block; width: min(100%, 260px); height: 190px; margin: 0 auto 20px; object-fit: contain; background: #eee; border-radius: 12px; }
+.item-detail time { color: #888; font-size: .82rem; }
 .dialog p:not(.eyebrow) { color: #aaa; line-height: 1.6; }
 @media (max-width: 760px) {
   .app-header { align-items: flex-start; flex-direction: column; gap: 10px; }

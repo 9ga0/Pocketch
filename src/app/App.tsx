@@ -12,10 +12,15 @@ const navigation: { mode: AppMode; label: string }[] = [
 
 export function App() {
   const [mode, setMode] = useState<AppMode>("collection");
+  const [gameActive, setGameActive] = useState(false);
+  const navigate = (nextMode: AppMode) => {
+    if (mode === "game" && gameActive && nextMode !== "game" && !window.confirm("진행 중인 게임이 종료됩니다. 이동할까요?")) return;
+    setMode(nextMode);
+  };
   return (
     <div className="app-shell">
       <header className="app-header">
-        <button className="brand" onClick={() => setMode("collection")}>
+        <button className="brand" onClick={() => navigate("collection")}>
           <span className="brand__mark" aria-hidden="true">P</span>
           <span>POCKETCH</span>
         </button>
@@ -25,7 +30,7 @@ export function App() {
               key={item.mode}
               aria-current={mode === item.mode ? "page" : undefined}
               className="nav-button"
-              onClick={() => setMode(item.mode)}
+              onClick={() => navigate(item.mode)}
             >
               {item.label}
             </button>
@@ -34,7 +39,7 @@ export function App() {
       </header>
       <main>
         {mode === "collection" && <CollectionPage />}
-        {mode === "game" && <GamePage onGoToCollection={() => setMode("collection")} />}
+        {mode === "game" && <GamePage onGoToCollection={() => navigate("collection")} onGameStateChange={setGameActive} />}
         {mode === "ranking" && <RankingPage />}
       </main>
     </div>
