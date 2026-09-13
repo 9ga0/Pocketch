@@ -25,16 +25,22 @@ export function GamePage({ onGoToCollection, onGameStateChange }: { onGoToCollec
   const lastFrame = useRef(0);
   const snapshot = useRef<CollectedItem[]>([]);
   const countdownTimer = useRef<number | undefined>(undefined);
+  const resultSaved = useRef(false);
 
   const urls = useMemo(() => new Map(items.map((item) => [item.id, URL.createObjectURL(item.image)])), [items]);
   useEffect(() => () => urls.forEach((url) => URL.revokeObjectURL(url)), [urls]);
   useEffect(() => { collectionRepository.getItems().then((loaded) => { setItems(loaded); setPhase("idle"); }).catch(() => { setError("저장된 물건을 불러오지 못했습니다."); setPhase("idle"); }); return () => { if (countdownTimer.current) window.clearTimeout(countdownTimer.current); }; }, []);
   useEffect(() => { onGameStateChange?.(phase === "countdown" || phase === "playing" || phase === "paused"); }, [onGameStateChange, phase]);
+  useEffect(() => {
+    if (phase !== "finished" || resultSaved.current) return;
+    resultSaved.current = true;
+    void collectionRepository.addGameResult({ id: crypto.randomUUID(), nickname: nickname.trim(), score, caughtCount: caught, playedAt: new Date().toISOString() });
+  }, [caught, nickname, phase, score]);
 
   const finish = useCallback(() => { setPhase("finished"); setFalling([]); pressed.current.clear(); }, []);
   const start = () => {
     if (!validNickname(nickname) || !items.length) return;
-    snapshot.current = [...items]; sequence.current = 0; setScore(0); setCaught(0); setFalling([]); setSeconds(GAME_DURATION_SECONDS); setPhase("countdown");
+    snapshot.current = [...items]; sequence.current = 0; resultSaved.current = false; setScore(0); setCaught(0); setFalling([]); setSeconds(GAME_DURATION_SECONDS); setPhase("countdown");
     countdownTimer.current = window.setTimeout(() => { startedAt.current = performance.now(); lastFrame.current = startedAt.current; setPhase((current) => current === "countdown" ? "playing" : current); }, GAME_COUNTDOWN_SECONDS * 1000);
   };
 

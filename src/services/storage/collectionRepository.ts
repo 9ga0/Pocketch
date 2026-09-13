@@ -1,14 +1,15 @@
 import {
   DEFAULT_COLLECTION_SETTINGS,
   type CollectedItem,
-  type CollectionSettings,
+  type CollectionSettings, type GameResult,
 } from "../../domain/collection";
 import { toStorageError } from "./errors";
 
 export const DATABASE_NAME = "pocketch";
-export const DATABASE_VERSION = 1;
+export const DATABASE_VERSION = 2;
 const ITEM_STORE = "collected-items";
 const SETTINGS_STORE = "collection-settings";
+const RESULTS_STORE = "game-results";
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -50,6 +51,9 @@ async function openDatabase(): Promise<IDBDatabase> {
       }
       if (!database.objectStoreNames.contains(SETTINGS_STORE)) {
         database.createObjectStore(SETTINGS_STORE, { keyPath: "id" });
+      }
+      if (!database.objectStoreNames.contains(RESULTS_STORE)) {
+        database.createObjectStore(RESULTS_STORE, { keyPath: "id" });
       }
     });
     return await requestResult(request);
@@ -115,6 +119,31 @@ export const collectionRepository = {
     return useDatabase("write", async (database) => {
       const transaction = database.transaction(SETTINGS_STORE, "readwrite");
       transaction.objectStore(SETTINGS_STORE).put(settings);
+      await transactionDone(transaction);
+    });
+  },
+
+  async addGameResult(result: GameResult): Promise<void> {
+    return useDatabase("write", async (database) => {
+      const transaction = database.transaction(RESULTS_STORE, "readwrite");
+      transaction.objectStore(RESULTS_STORE).add(result);
+      await transactionDone(transaction);
+    });
+  },
+
+  async getTopResults(limit = 10): Promise<GameResult[]> {
+    return useDatabase("read", async (database) => {
+      const transaction = database.transaction(RESULTS_STORE, "readonly");
+      const results = await requestResult<GameResult[]>(transaction.objectStore(RESULTS_STORE).getAll());
+      await transactionDone(transaction);
+      return results.sort((left, right) => right.score - left.score || left.playedAt.localeCompare(right.playedAt)).slice(0, limit);
+    });
+  },
+
+  async resetResults(): Promise<void> {
+    return useDatabase("reset", async (database) => {
+      const transaction = database.transaction(RESULTS_STORE, "readwrite");
+      transaction.objectStore(RESULTS_STORE).clear();
       await transactionDone(transaction);
     });
   },

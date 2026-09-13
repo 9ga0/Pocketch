@@ -14,6 +14,14 @@ export interface CollectionSettings {
   globalScale: number;
 }
 
+export interface GameResult {
+  id: string;
+  nickname: string;
+  score: number;
+  caughtCount: number;
+  playedAt: string;
+}
+
 export const DEFAULT_COLLECTION_SETTINGS: CollectionSettings = {
   id: "collection-settings",
   scaleLevel: 0,
