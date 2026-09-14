@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@imgly/background-removal": "1.7.0",
+    "firebase": "^12.19.0",
     "onnxruntime-web": "1.21.0",
     "phaser": "^3.90.0",
     "react": "^19.3.0",
