@@ -41,6 +41,18 @@ export function createItemOutcomeTracker() {
   };
 }
 
+export function createLivesTracker(startingLives: number) {
+  let remaining = startingLives;
+  let missed = 0;
+  return {
+    remaining() { return remaining; },
+    missed() { return missed; },
+    depleted() { return remaining <= 0; },
+    registerMiss() { missed += 1; remaining = Math.max(0, remaining - 1); return remaining; },
+    reset() { remaining = startingLives; missed = 0; },
+  };
+}
+
 export type ResumablePhase = "countdown" | "playing";
 export type PauseReason = "blur" | "hidden" | "exit-confirm";
 

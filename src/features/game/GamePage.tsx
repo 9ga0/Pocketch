@@ -3,8 +3,8 @@ import { Button } from "../../components/Button";
 import { StatusPanel } from "../../components/StatusPanel";
 import type { CollectedItem, GameResult } from "../../domain/collection";
 import { collectionRepository } from "../../services/storage/collectionRepository";
-import { ActiveGameClock, createItemOutcomeTracker, createPauseController, resizeCoordinate, type PauseReason } from "./gameSession";
-import { CATCH_SCORE, GAME_COUNTDOWN_SECONDS, GAME_DURATION_SECONDS, clampBasketX, createDirectionController, pickRandomIndex, randomSpawnX, validNickname } from "./gameRules";
+import { ActiveGameClock, createItemOutcomeTracker, createLivesTracker, createPauseController, resizeCoordinate, type PauseReason } from "./gameSession";
+import { BASE_FALL_SPEED, CATCH_SCORE, GAME_COUNTDOWN_SECONDS, GAME_DURATION_SECONDS, STARTING_HEARTS, clampBasketX, createDirectionController, fallSpeedMultiplier, pickRandomIndex, randomSpawnX, validNickname } from "./gameRules";
 
 type Phase = "loading" | "idle" | "countdown" | "playing" | "paused" | "finished";
 type FallingItem = { id: string; x: number; y: number; size: number; item: CollectedItem };
@@ -19,6 +19,8 @@ export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, n
   const [seconds, setSeconds] = useState(GAME_DURATION_SECONDS);
   const [score, setScore] = useState(0);
   const [caught, setCaught] = useState(0);
+  const [hearts, setHearts] = useState(STARTING_HEARTS);
+  const [missed, setMissed] = useState(0);
   const [falling, setFalling] = useState<FallingItem[]>([]);
   const [effects, setEffects] = useState<CatchEffect[]>([]);
   const [completed, setCompleted] = useState<GameResult | null>(null);
@@ -29,6 +31,7 @@ export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, n
   const basketX = useRef<number | null>(null);
   const direction = useRef(createDirectionController());
   const outcomes = useRef(createItemOutcomeTracker());
+  const lives = useRef(createLivesTracker(STARTING_HEARTS));
   const pauses = useRef(createPauseController());
   const clock = useRef(new ActiveGameClock(GAME_DURATION_SECONDS * 1000));
   const countdownClock = useRef(new ActiveGameClock(GAME_COUNTDOWN_SECONDS * 1000));
@@ -98,7 +101,7 @@ export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, n
     if (!validNickname(nickname) || !items.length) return;
     snapshot.current = [...items]; sessionId.current = crypto.randomUUID(); sequence.current = 0; basketX.current = null; finished.current = false; pauses.current.reset(); setPauseReasons([]);
     effectTimers.current.forEach((timer) => window.clearTimeout(timer)); effectTimers.current.clear();
-    outcomes.current.reset(); scoreRef.current = 0; caughtRef.current = 0; setCompleted(null); setError(null); setScore(0); setCaught(0); setFalling([]); setEffects([]); setSeconds(GAME_DURATION_SECONDS);
+    outcomes.current.reset(); lives.current.reset(); scoreRef.current = 0; caughtRef.current = 0; setCompleted(null); setError(null); setScore(0); setCaught(0); setHearts(STARTING_HEARTS); setMissed(0); setFalling([]); setEffects([]); setSeconds(GAME_DURATION_SECONDS);
     countdownClock.current.start(); setCountdown(GAME_COUNTDOWN_SECONDS); setPhase("countdown");
   };
 
@@ -158,8 +161,9 @@ export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, n
       const currentBasketX = basketX.current;
       const suppressCollision = suppressCollisionFrames.current > 0;
       suppressCollisionFrames.current = Math.max(0, suppressCollisionFrames.current - 1);
+      const fallSpeed = BASE_FALL_SPEED * fallSpeedMultiplier(clock.current.elapsedMs());
       setFalling((current) => current.flatMap((fallingItem) => {
-        const y = fallingItem.y + delta * .00038 * height;
+        const y = fallingItem.y + delta * fallSpeed * height;
         const hit = y + fallingItem.size >= height - 48 && y <= height - 18 && Math.abs(fallingItem.x - currentBasketX) < (basketWidth + fallingItem.size) / 2;
         if (hit && !suppressCollision) {
           const resolution = outcomes.current.resolve(fallingItem.id, "caught");
@@ -172,16 +176,26 @@ export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, n
           }
           return [];
         }
-        if (y > height + fallingItem.size) { outcomes.current.resolve(fallingItem.id, "missed"); return []; }
+        if (y > height + fallingItem.size) {
+          const resolution = outcomes.current.resolve(fallingItem.id, "missed");
+          if (resolution.accepted) {
+            const remaining = lives.current.registerMiss();
+            setHearts(remaining); setMissed(lives.current.missed());
+            if (remaining <= 0) finish();
+          }
+          return [];
+        }
         return [{ ...fallingItem, y }];
       }));
-      const spawnNumber = Math.floor(clock.current.elapsedMs() / 900);
-      if (spawnNumber > sequence.current) {
-        sequence.current += 1;
-        const item = snapshot.current[pickRandomIndex(Math.random(), snapshot.current.length) ?? 0];
-        if (item) setFalling((current) => [...current, { id: `${sessionId.current}-${sequence.current}`, x: randomSpawnX(Math.random(), width, 54), y: -60, size: 54, item }]);
+      if (!finished.current) {
+        const spawnNumber = Math.floor(clock.current.elapsedMs() / 900);
+        if (spawnNumber > sequence.current) {
+          sequence.current += 1;
+          const item = snapshot.current[pickRandomIndex(Math.random(), snapshot.current.length) ?? 0];
+          if (item) setFalling((current) => [...current, { id: `${sessionId.current}-${sequence.current}`, x: randomSpawnX(Math.random(), width, 54), y: -60, size: 54, item }]);
+        }
       }
-      animation = requestAnimationFrame(frame);
+      if (!finished.current) animation = requestAnimationFrame(frame);
     };
     animation = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(animation);
@@ -201,6 +215,6 @@ export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, n
   if (phase === "loading") return <div className="centered-page"><StatusPanel title="게임을 준비하고 있어요"><p>저장된 물건을 불러오는 중입니다.</p></StatusPanel></div>;
   if (!items.length) return <div className="centered-page"><StatusPanel title="먼저 물건을 모아주세요" action={<Button variant="primary" onClick={onGoToCollection}>채집으로 이동</Button>}><p>등록된 물건이 있어야 캐치 게임을 시작할 수 있습니다.</p></StatusPanel></div>;
   if (phase === "idle") return <div className="game-start centered-page"><div className="game-start__card"><p className="eyebrow">CATCH GAME · 30 SEC</p><h1>떨어지는 물건을 받아보세요</h1><label>닉네임<input value={nickname} maxLength={20} onChange={(event) => setNickname(event.target.value)} placeholder="이름을 입력하세요" /></label>{error && <p className="camera-error">{error}</p>}<Button variant="primary" disabled={!validNickname(nickname)} onClick={start}>게임 시작</Button></div></div>;
-  if (phase === "finished" && completed) return <div className="centered-page"><StatusPanel title="게임 종료"><p><strong>{completed.nickname}</strong>님, {completed.caughtCount}개를 받았어요.</p><p className="game-score">{completed.score.toLocaleString()}점</p><p className={`result-save result-save--${saveStatus}`} aria-live="polite">{saveStatus === "saving" && "결과를 저장하고 있어요…"}{saveStatus === "success" && "랭킹에 저장됐습니다."}{saveStatus === "failed" && error}</p><div className="status-panel__actions">{saveStatus === "failed" && <Button variant="primary" onClick={() => void saveResult(completed)}>저장 다시 시도</Button>}<Button variant={saveStatus === "success" ? "primary" : "secondary"} disabled={saveStatus === "saving"} onClick={() => void replay()}>{saveStatus === "failed" ? "저장하지 않고 다시하기" : "다시하기"}</Button><Button disabled={saveStatus !== "success"} onClick={onGoToRanking}>랭킹 보기</Button><Button disabled={saveStatus === "saving"} onClick={onGoToCollection}>채집으로 이동</Button></div></StatusPanel></div>;
-  return <div className="game-page"><div className="game-hud"><span>닉네임 <strong>{nickname.trim()}</strong></span><span>남은 시간 <strong>{seconds}초</strong></span><span>점수 <strong>{score.toLocaleString()}</strong></span><span>받은 물건 <strong>{caught}</strong></span></div><div ref={arenaRef} className="game-arena">{falling.map((fallingItem) => <img key={fallingItem.id} className="falling-item" src={urls.get(fallingItem.item.id)} alt={fallingItem.item.name} style={{ left: fallingItem.x, top: fallingItem.y, width: fallingItem.size, height: fallingItem.size }} />)}{effects.map((effect) => <span key={effect.id} className="catch-effect" style={{ left: effect.x, top: effect.y }}>+{CATCH_SCORE}</span>)}<div className="basket" style={{ left: basketX.current ?? "50%" }} aria-label="바구니" />{phase === "countdown" && <div className="game-overlay"><strong>{countdown}</strong></div>}{phase === "paused" && <div className="game-overlay"><strong>일시정지</strong><p>{pauseReasons.length ? "창이 다시 활성화될 때까지 기다려 주세요." : "준비되면 게임을 이어가세요."}</p><Button variant="primary" disabled={!pauses.current.canResume()} onClick={resumeGame}>재개</Button></div>}</div><p className="game-help">← → 또는 A / D 를 눌러 바구니를 움직이세요</p></div>;
+  if (phase === "finished" && completed) return <div className="centered-page"><StatusPanel title="게임 종료"><p><strong>{completed.nickname}</strong>님, {completed.caughtCount}개를 받았어요.</p><p className="game-lives-summary">{missed}개를 놓치고 하트 {hearts}개가 남았어요.</p><p className="game-score">{completed.score.toLocaleString()}점</p><p className={`result-save result-save--${saveStatus}`} aria-live="polite">{saveStatus === "saving" && "결과를 저장하고 있어요…"}{saveStatus === "success" && "랭킹에 저장됐습니다."}{saveStatus === "failed" && error}</p><div className="status-panel__actions">{saveStatus === "failed" && <Button variant="primary" onClick={() => void saveResult(completed)}>저장 다시 시도</Button>}<Button variant={saveStatus === "success" ? "primary" : "secondary"} disabled={saveStatus === "saving"} onClick={() => void replay()}>{saveStatus === "failed" ? "저장하지 않고 다시하기" : "다시하기"}</Button><Button disabled={saveStatus !== "success"} onClick={onGoToRanking}>랭킹 보기</Button><Button disabled={saveStatus === "saving"} onClick={onGoToCollection}>채집으로 이동</Button></div></StatusPanel></div>;
+  return <div className="game-page"><div className="game-hud"><span className="game-hud__hearts" aria-label={`남은 하트 ${hearts}개`}><strong>{"♥".repeat(hearts)}{"♡".repeat(Math.max(0, STARTING_HEARTS - hearts))}</strong></span><span>닉네임 <strong>{nickname.trim()}</strong></span><span>남은 시간 <strong>{seconds}초</strong></span><span>점수 <strong>{score.toLocaleString()}</strong></span><span>받은 물건 <strong>{caught}</strong></span></div><div ref={arenaRef} className="game-arena">{falling.map((fallingItem) => <img key={fallingItem.id} className="falling-item" src={urls.get(fallingItem.item.id)} alt={fallingItem.item.name} style={{ left: fallingItem.x, top: fallingItem.y, width: fallingItem.size, height: fallingItem.size }} />)}{effects.map((effect) => <span key={effect.id} className="catch-effect" style={{ left: effect.x, top: effect.y }}>+{CATCH_SCORE}</span>)}<div className="basket" style={{ left: basketX.current ?? "50%" }} aria-label="바구니" />{phase === "countdown" && <div className="game-overlay"><strong>{countdown}</strong></div>}{phase === "paused" && <div className="game-overlay"><strong>일시정지</strong><p>{pauseReasons.length ? "창이 다시 활성화될 때까지 기다려 주세요." : "준비되면 게임을 이어가세요."}</p><Button variant="primary" disabled={!pauses.current.canResume()} onClick={resumeGame}>재개</Button></div>}</div><p className="game-help">← → 또는 A / D 를 눌러 바구니를 움직이세요</p></div>;
 }
