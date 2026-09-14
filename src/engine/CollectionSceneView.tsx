@@ -185,6 +185,7 @@ export function CollectionSceneView({ items, settings }: Props) {
             sprite.setPosition(Phaser.Math.Clamp(sprite.x, size.width / 2 + 8, this.scale.width - size.width / 2 - 8), Phaser.Math.Clamp(sprite.y, size.height / 2 + 8, this.scale.height - size.height / 2 - 8));
           });
           void collectionRepository.updateSettings(settingsRef.current);
+          collectionSceneBridge.emit({ type: "settings:changed", settings: settingsRef.current });
         }
       }
 

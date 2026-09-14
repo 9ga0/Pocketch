@@ -9,7 +9,7 @@ import {
   deletePocketchDatabase,
 } from "../../services/storage/collectionRepository";
 import { StorageError } from "../../services/storage/errors";
-import { mirrorDeleteItem, mirrorItem, revokeSession } from "../../services/sync/sessionSync";
+import { mirrorDeleteItem, mirrorItem, mirrorSettings, revokeSession } from "../../services/sync/sessionSync";
 import { CaptureModal } from "./CaptureModal";
 import { ShareSessionPanel } from "./ShareSessionPanel";
 import { TiltControl } from "./TiltControl";
@@ -51,6 +51,11 @@ export function CollectionPage() {
 
   useEffect(() => collectionSceneBridge.onEvent((event) => {
     if (event.type === "item:detail-requested") setDetailId(event.itemId);
+    if (event.type === "settings:changed") {
+      const nextSettings = event.settings;
+      setState((current) => current.status === "ready" ? { ...current, settings: nextSettings } : current);
+      if (nextSettings.sessionId) void mirrorSettings(nextSettings.sessionId, nextSettings).catch(() => undefined);
+    }
   }), []);
 
   const updateSettings = async (nextSettings: CollectionSettings) => {

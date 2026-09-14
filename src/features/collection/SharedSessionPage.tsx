@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/Button";
 import { StatusPanel } from "../../components/StatusPanel";
 import type { CollectedItem, CollectionSettings } from "../../domain/collection";
@@ -60,10 +60,42 @@ export function SharedSessionPage({ sessionId, onExit }: SharedSessionPageProps)
     if (event.type === "item:detail-requested") setDetailId(event.itemId);
   }), []);
 
-  const items = useMemo(
-    () => (state.status === "ready" ? state.snapshot.items.map(toCollectedItem) : []),
-    [state],
-  );
+  // 물건 id별로 변환된 CollectedItem(Blob 포함)을 재사용해, 실시간 스냅샷마다
+  // 바뀌지 않은 물건까지 매번 base64를 다시 디코딩하지 않게 한다.
+  const itemCacheRef = useRef(new Map<string, CollectedItem>());
+  const items = useMemo(() => {
+    if (state.status !== "ready") return [];
+    const cache = itemCacheRef.current;
+    const nextIds = new Set(state.snapshot.items.map((sharedItem) => sharedItem.id));
+    for (const id of cache.keys()) if (!nextIds.has(id)) cache.delete(id);
+    return state.snapshot.items.map((sharedItem) => {
+      const cached = cache.get(sharedItem.id);
+      if (cached) return cached;
+      const converted = toCollectedItem(sharedItem);
+      cache.set(sharedItem.id, converted);
+      return converted;
+    });
+  }, [state]);
+
+  // CollectionSceneView는 마운트 시점의 items만 물리 장면에 반영하고 이후 prop 변화에는
+  // 반응하지 않으므로(엔진은 bridge 커맨드로만 갱신됨), 최초 스냅샷 이후의 추가·삭제는
+  // 직접 item:add/item:remove 커맨드로 장면에 전달해야 실시간으로 반영된다.
+  const previousIdsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    // CollectionSceneView가 아직 마운트되지 않았다면(로딩/에러 화면) 비교할 장면이 없다.
+    if (state.status !== "ready") return;
+    const currentIds = new Set(items.map((item) => item.id));
+    const previous = previousIdsRef.current;
+    if (previous) {
+      for (const item of items) {
+        if (!previous.has(item.id)) collectionSceneBridge.dispatch({ type: "item:add", item });
+      }
+      for (const id of previous) {
+        if (!currentIds.has(id)) collectionSceneBridge.dispatch({ type: "item:remove", itemId: id });
+      }
+    }
+    previousIdsRef.current = currentIds;
+  }, [items, state.status]);
 
   if (state.status === "loading") {
     return (

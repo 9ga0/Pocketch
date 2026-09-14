@@ -106,6 +106,31 @@ describe("SharedSessionPage", () => {
     expect(screen.getByText("네트워크 오류")).not.toBeNull();
   });
 
+  it("dispatches only the incremental item:add/item:remove diff to the scene after the first snapshot", () => {
+    const dispatch = vi.spyOn(collectionSceneBridge, "dispatch");
+    render(<SharedSessionPage sessionId="session-1" onExit={vi.fn()} />);
+    const sharedItem = (id: string) => ({
+      id,
+      name: id,
+      description: "",
+      imageBase64: btoa("fake"),
+      imageContentType: "image/webp",
+      width: 10,
+      height: 10,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    act(() => onChange({ exists: true, settings: null, items: [sharedItem("a"), sharedItem("b")] }));
+    expect(dispatch).not.toHaveBeenCalled();
+
+    act(() => onChange({ exists: true, settings: null, items: [sharedItem("b"), sharedItem("c")] }));
+    expect(dispatch).toHaveBeenCalledWith({ type: "item:add", item: expect.objectContaining({ id: "c" }) });
+    expect(dispatch).toHaveBeenCalledWith({ type: "item:remove", itemId: "a" });
+    expect(dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "item:add", item: expect.objectContaining({ id: "b" }) }));
+
+    dispatch.mockRestore();
+  });
+
   it("unsubscribes when the session id changes or the page unmounts", () => {
     const { rerender, unmount } = render(<SharedSessionPage sessionId="session-1" onExit={vi.fn()} />);
     rerender(<SharedSessionPage sessionId="session-2" onExit={vi.fn()} />);
