@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ActiveGameClock, countdownNumber, createItemOutcomeTracker, createLivesTracker, createPauseController, resizeCoordinate } from "./gameSession";
+import { ActiveGameClock, countdownNumber, createItemOutcomeTracker, createPauseController, resizeCoordinate } from "./gameSession";
 
 describe("active game clock", () => {
   it("runs for exactly 30 active seconds and excludes paused time", () => {
@@ -42,34 +42,6 @@ describe("item outcome tracker", () => {
   it("rejects every outcome after game end", () => {
     const tracker = createItemOutcomeTracker(); tracker.stop();
     expect(tracker.resolve("late", "caught").accepted).toBe(false);
-  });
-});
-
-describe("lives tracker", () => {
-  it("counts down from the starting hearts to zero and tracks total misses", () => {
-    const lives = createLivesTracker(3);
-    expect(lives.remaining()).toBe(3);
-    expect(lives.registerMiss()).toBe(2);
-    expect(lives.registerMiss()).toBe(1);
-    expect(lives.depleted()).toBe(false);
-    expect(lives.registerMiss()).toBe(0);
-    expect(lives.depleted()).toBe(true);
-    expect(lives.missed()).toBe(3);
-  });
-
-  it("never drops remaining lives below zero on extra misses", () => {
-    const lives = createLivesTracker(1);
-    lives.registerMiss();
-    expect(lives.registerMiss()).toBe(0);
-    expect(lives.missed()).toBe(2);
-  });
-
-  it("resets remaining lives and the miss count", () => {
-    const lives = createLivesTracker(3);
-    lives.registerMiss(); lives.registerMiss();
-    lives.reset();
-    expect(lives.remaining()).toBe(3);
-    expect(lives.missed()).toBe(0);
   });
 });
 

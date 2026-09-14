@@ -3,11 +3,11 @@ import { BASE_FALL_SPEED, bonusXForNormal, clampBasketX, createDirectionControll
 
 it("keeps every normal slot and schedules four additional bonus challenges", () => {
   const drops = Array.from({ length: 33 }, (_, i) => dropForSlot(i + 1));
-  expect(drops.every(drop => drop.kind === "normal" && drop.points === 100 && drop.costsHeart)).toBe(true);
+  expect(drops.every(drop => drop.kind === "normal" && drop.points === 100)).toBe(true);
   expect(drops.filter(drop => drop.bonusKind).map(drop => drop.bonusKind)).toEqual(["fast", "fast", "super", "super"]);
   expect(dropForSlot(1).bonusKind).toBeUndefined();
-  expect(DROP_RULES.fast).toMatchObject({ points: 300, speedMultiplier: 1.12, costsHeart: false });
-  expect(DROP_RULES.super).toMatchObject({ points: 500, speedMultiplier: 1.25, costsHeart: false });
+  expect(DROP_RULES.fast).toMatchObject({ points: 300, speedMultiplier: 1.12 });
+  expect(DROP_RULES.super).toMatchObject({ points: 500, speedMultiplier: 1.25 });
 });
 
 it("spawns bonus on the opposite side with enough reaction time", () => {

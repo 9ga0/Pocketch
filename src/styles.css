@@ -102,8 +102,6 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .game-page { width: 100%; padding: clamp(18px, 4vw, 48px); }
 .game-hud { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; max-width: 1000px; margin: 0 auto 16px; color: #aaa; }
 .game-hud strong { margin-left: 6px; color: #f4f4ef; font-size: 1.35rem; }
-.game-hud__hearts strong { margin-left: 0; letter-spacing: .12em; color: #ff6b81; }
-.game-lives-summary { color: #aaa; }
 .game-arena { position: relative; width: min(100%, 1000px); height: min(72vh, 700px); min-height: 420px; margin: auto; overflow: hidden; border: 1px solid #2a2a2a; border-radius: 20px; background: linear-gradient(#111, #070707); }
 .falling-item { position: absolute; z-index: 1; object-fit: contain; transform: translateX(-50%); pointer-events: none; }
 .catch-effect { position: absolute; z-index: 2; color: #d9ff43; font-size: 1.25rem; font-weight: 900; transform: translate(-50%, -50%); animation: catch-pop .42s ease-out forwards; pointer-events: none; }

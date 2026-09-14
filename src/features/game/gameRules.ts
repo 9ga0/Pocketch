@@ -1,13 +1,12 @@
 export const GAME_DURATION_SECONDS = 30;
 export const GAME_COUNTDOWN_SECONDS = 3;
 export const CATCH_SCORE = 100;
-export const STARTING_HEARTS = 3;
 export const SPAWN_INTERVAL_MS = 900;
 export type DropKind = "normal" | "fast" | "super";
 export const DROP_RULES = {
-  normal: { points: 100, speedMultiplier: 1, costsHeart: true },
-  fast: { points: 300, speedMultiplier: 1.12, costsHeart: false },
-  super: { points: 500, speedMultiplier: 1.25, costsHeart: false },
+  normal: { points: 100, speedMultiplier: 1 },
+  fast: { points: 300, speedMultiplier: 1.12 },
+  super: { points: 500, speedMultiplier: 1.25 },
 } as const;
 
 export function dropForSlot(slot: number) {
