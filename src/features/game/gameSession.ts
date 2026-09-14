@@ -30,26 +30,14 @@ export function createItemOutcomeTracker() {
   const outcomes = new Map<string, ItemOutcome>();
   let accepting = true;
   return {
-    resolve(id: string, outcome: ItemOutcome) {
+    resolve(id: string, outcome: ItemOutcome, points = CATCH_SCORE) {
       if (!accepting || outcomes.has(id)) return { accepted: false, scoreDelta: 0, caughtDelta: 0 };
       outcomes.set(id, outcome);
-      return { accepted: true, scoreDelta: outcome === "caught" ? CATCH_SCORE : 0, caughtDelta: outcome === "caught" ? 1 : 0 };
+      return { accepted: true, scoreDelta: outcome === "caught" ? points : 0, caughtDelta: outcome === "caught" ? 1 : 0 };
     },
     stop() { accepting = false; },
     reset() { outcomes.clear(); accepting = true; },
     outcomeOf(id: string) { return outcomes.get(id); },
-  };
-}
-
-export function createLivesTracker(startingLives: number) {
-  let remaining = startingLives;
-  let missed = 0;
-  return {
-    remaining() { return remaining; },
-    missed() { return missed; },
-    depleted() { return remaining <= 0; },
-    registerMiss() { missed += 1; remaining = Math.max(0, remaining - 1); return remaining; },
-    reset() { remaining = startingLives; missed = 0; },
   };
 }
 
