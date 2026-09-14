@@ -6,8 +6,8 @@ export const SPAWN_INTERVAL_MS = 900;
 export type DropKind = "normal" | "fast" | "super";
 export const DROP_RULES = {
   normal: { points: 100, speedMultiplier: 1, costsHeart: true },
-  fast: { points: 300, speedMultiplier: 1.35, costsHeart: false },
-  super: { points: 500, speedMultiplier: 1.7, costsHeart: false },
+  fast: { points: 300, speedMultiplier: 1.12, costsHeart: false },
+  super: { points: 500, speedMultiplier: 1.25, costsHeart: false },
 } as const;
 
 export function dropForSlot(slot: number) {
@@ -15,10 +15,8 @@ export function dropForSlot(slot: number) {
   return { kind: "normal" as DropKind, ...DROP_RULES.normal, bonusKind };
 }
 
-// The pair shares the same remaining fall time, even while the base speed ramps.
-export function bonusLaunchY(normalY: number, height: number, size: number, multiplier: number) {
-  const catchY = height - 52 - size;
-  return catchY - (catchY - normalY) * multiplier;
+export function bonusXForNormal(normalX: number, width: number) {
+  return width - normalX;
 }
 
 export function crossesBasket(previousY: number, nextY: number, size: number, height: number) {
@@ -26,9 +24,9 @@ export function crossesBasket(previousY: number, nextY: number, size: number, he
 }
 
 // 등록된 아이템 개수와 무관하게, 경과 시간(일시정지 제외)만을 입력으로 낙하 속도를 계산한다.
-export const BASE_FALL_SPEED = 0.00038;
-export const MAX_FALL_SPEED_MULTIPLIER = 2.2;
-export const FALL_SPEED_RAMP_MS = 20_000;
+export const BASE_FALL_SPEED = 0.00025;
+export const MAX_FALL_SPEED_MULTIPLIER = 1.7;
+export const FALL_SPEED_RAMP_MS = GAME_DURATION_SECONDS * 1000;
 
 /** 경과 시간에 비례해 1배에서 최대 배율까지 선형으로 올라가고, 그 이후로는 최대치에서 멈춘다. */
 export function fallSpeedMultiplier(elapsedMs: number, rampMs = FALL_SPEED_RAMP_MS): number {

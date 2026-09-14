@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { dropForSlot, bonusLaunchY, DROP_RULES, crossesBasket } from "./gameRules";
+import { BASE_FALL_SPEED, bonusXForNormal, clampBasketX, createDirectionController, crossesBasket, dropForSlot, DROP_RULES, fallSpeedMultiplier, pickRandomIndex, randomSpawnX } from "./gameRules";
 
 it("keeps every normal slot and schedules four additional bonus challenges", () => {
   const drops = Array.from({ length: 33 }, (_, i) => dropForSlot(i + 1));
   expect(drops.every(drop => drop.kind === "normal" && drop.points === 100 && drop.costsHeart)).toBe(true);
   expect(drops.filter(drop => drop.bonusKind).map(drop => drop.bonusKind)).toEqual(["fast", "fast", "super", "super"]);
   expect(dropForSlot(1).bonusKind).toBeUndefined();
-  expect(DROP_RULES.fast).toMatchObject({ points: 300, costsHeart: false });
-  expect(DROP_RULES.super).toMatchObject({ points: 500, costsHeart: false });
+  expect(DROP_RULES.fast).toMatchObject({ points: 300, speedMultiplier: 1.12, costsHeart: false });
+  expect(DROP_RULES.super).toMatchObject({ points: 500, speedMultiplier: 1.25, costsHeart: false });
 });
 
-it("launches bonus so both opposite-side drops reach the basket together", () => {
-  const catchY = 600 - 52 - 54;
-  for (const multiplier of [1.35, 1.7]) {
-    const bonusY = bonusLaunchY(200, 600, 54, multiplier);
-    expect((catchY - bonusY) / multiplier).toBeCloseTo(catchY - 200);
-  }
+it("spawns bonus on the opposite side with enough reaction time", () => {
+  expect(bonusXForNormal(96, 800)).toBe(704);
+  const travelDistance = 600 - 52 - 54 - (-60);
+  const initialNormalDuration = travelDistance / (BASE_FALL_SPEED * 600);
+  const finalSuperDuration = travelDistance / (BASE_FALL_SPEED * fallSpeedMultiplier(30_000) * 600 * DROP_RULES.super.speedMultiplier);
+  expect(initialNormalDuration).toBeGreaterThan(3_000);
+  expect(finalSuperDuration).toBeGreaterThan(1_700);
 });
 
 it("catches a fast drop crossing the basket between frames", () => {
@@ -23,8 +24,6 @@ it("catches a fast drop crossing the basket between frames", () => {
   expect(crossesBasket(300, 400, 54, 600)).toBe(false);
   expect(crossesBasket(610, 700, 54, 600)).toBe(false);
 });
-import { clampBasketX, createDirectionController, fallSpeedMultiplier, pickRandomIndex, randomSpawnX } from "./gameRules";
-
 describe("catch game rules", () => {
   it("tracks physical keys independently and ignores auto-repeat", () => {
     const controller = createDirectionController();
@@ -45,9 +44,9 @@ describe("catch game rules", () => {
   });
 
   it("ramps fall speed linearly with elapsed time and caps at the maximum multiplier", () => {
-    expect(fallSpeedMultiplier(0, 20_000)).toBe(1);
-    expect(fallSpeedMultiplier(10_000, 20_000)).toBeCloseTo(1.6);
-    expect(fallSpeedMultiplier(20_000, 20_000)).toBeCloseTo(2.2);
-    expect(fallSpeedMultiplier(60_000, 20_000)).toBeCloseTo(2.2);
+    expect(fallSpeedMultiplier(0, 30_000)).toBe(1);
+    expect(fallSpeedMultiplier(15_000, 30_000)).toBeCloseTo(1.35);
+    expect(fallSpeedMultiplier(30_000, 30_000)).toBeCloseTo(1.7);
+    expect(fallSpeedMultiplier(60_000, 30_000)).toBeCloseTo(1.7);
   });
 });

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GamePage } from "./GamePage";
 import { collectionRepository } from "../../services/storage/collectionRepository";
@@ -33,6 +33,7 @@ it("returns to collection on Escape and ignores backdrop clicks", async () => {
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(dialog.parentElement!);
   expect(exit).not.toHaveBeenCalled();
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("성함")));
   fireEvent.keyDown(document, { key: "Escape" });
   expect(exit).toHaveBeenCalledOnce();
 });

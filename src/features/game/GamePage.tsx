@@ -5,7 +5,7 @@ import { StatusPanel } from "../../components/StatusPanel";
 import type { CollectedItem, GameResult } from "../../domain/collection";
 import { collectionRepository } from "../../services/storage/collectionRepository";
 import { ActiveGameClock, createItemOutcomeTracker, createLivesTracker, createPauseController, resizeCoordinate, type PauseReason } from "./gameSession";
-import { BASE_FALL_SPEED, DROP_RULES, SPAWN_INTERVAL_MS, dropForSlot, bonusLaunchY, crossesBasket, GAME_COUNTDOWN_SECONDS, GAME_DURATION_SECONDS, STARTING_HEARTS, clampBasketX, createDirectionController, fallSpeedMultiplier, pickRandomIndex, randomSpawnX, validNickname, type DropKind } from "./gameRules";
+import { BASE_FALL_SPEED, DROP_RULES, SPAWN_INTERVAL_MS, dropForSlot, bonusXForNormal, crossesBasket, GAME_COUNTDOWN_SECONDS, GAME_DURATION_SECONDS, STARTING_HEARTS, clampBasketX, createDirectionController, fallSpeedMultiplier, pickRandomIndex, randomSpawnX, validNickname, type DropKind } from "./gameRules";
 
 type Phase = "loading" | "idle" | "countdown" | "playing" | "paused" | "finished";
 type FallingItem = { id: string; x: number; y: number; size: number; item: CollectedItem; kind: DropKind; points: number; speedMultiplier: number; costsHeart: boolean; bonusKind?: "fast" | "super" };
@@ -188,17 +188,6 @@ export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, n
           }
           return [];
         }
-        if (fallingItem.bonusKind) {
-          const rules = DROP_RULES[fallingItem.bonusKind];
-          const bonusY = bonusLaunchY(y, height, fallingItem.size, rules.speedMultiplier);
-          if (bonusY >= -60) {
-            return [
-              { ...fallingItem, y, bonusKind: undefined },
-              { ...fallingItem, id: fallingItem.id + "-bonus", kind: fallingItem.bonusKind,
-                bonusKind: undefined, ...rules, x: width - fallingItem.x, y: bonusY },
-            ];
-          }
-        }
         return [{ ...fallingItem, y }];
       }));
       if (!finished.current) {
@@ -209,8 +198,13 @@ export function GamePage({ onGoToCollection, onGoToRanking, onGameStateChange, n
           if (item) {
             const rules = dropForSlot(sequence.current);
             const x = rules.bonusKind ? width * (Math.random() < .5 ? .12 : .88) : randomSpawnX(Math.random(), width, 54);
-            const drop: FallingItem = { id: `${sessionId.current}-${sequence.current}`, x, y: -60, size: 54, item, ...rules };
-            setFalling((current) => [...current, drop]);
+            const normalDrop: FallingItem = { id: `${sessionId.current}-${sequence.current}`, x, y: -60, size: 54, item, ...rules, bonusKind: undefined };
+            const bonusItem = snapshot.current[pickRandomIndex(Math.random(), snapshot.current.length) ?? 0];
+            const bonusDrop: FallingItem | null = rules.bonusKind && bonusItem ? {
+              id: `${normalDrop.id}-bonus`, x: bonusXForNormal(x, width), y: -60, size: 54, item: bonusItem,
+              kind: rules.bonusKind, ...DROP_RULES[rules.bonusKind],
+            } : null;
+            setFalling((current) => bonusDrop ? [...current, normalDrop, bonusDrop] : [...current, normalDrop]);
           }
         }
       }
