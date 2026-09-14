@@ -51,7 +51,7 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${mode === "game" ? " app-shell--game" : ""}`}>
       <header className="app-header">
         <button className="brand" onClick={() => navigate("collection")}>
           <span className="brand__mark" aria-hidden="true">P</span>

@@ -22,6 +22,16 @@ describe("active game clock", () => {
 });
 
 describe("item outcome tracker", () => {
+  it("awards bonus points once, ignores missed bonuses and resets", () => {
+    const tracker = createItemOutcomeTracker();
+    expect(tracker.resolve("bonus", "caught", 500).scoreDelta).toBe(500);
+    expect(tracker.resolve("bonus", "caught", 500).scoreDelta).toBe(0);
+    expect(tracker.resolve("miss", "missed", 300).scoreDelta).toBe(0);
+    tracker.stop();
+    expect(tracker.resolve("late", "caught", 500).scoreDelta).toBe(0);
+    tracker.reset();
+    expect(tracker.resolve("bonus", "caught", 300).scoreDelta).toBe(300);
+  });
   it("scores a falling instance at most once and never scores misses", () => {
     const tracker = createItemOutcomeTracker();
     expect(tracker.resolve("drop-1", "caught")).toMatchObject({ accepted: true, scoreDelta: 100, caughtDelta: 1 });

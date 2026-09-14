@@ -30,10 +30,10 @@ export function createItemOutcomeTracker() {
   const outcomes = new Map<string, ItemOutcome>();
   let accepting = true;
   return {
-    resolve(id: string, outcome: ItemOutcome) {
+    resolve(id: string, outcome: ItemOutcome, points = CATCH_SCORE) {
       if (!accepting || outcomes.has(id)) return { accepted: false, scoreDelta: 0, caughtDelta: 0 };
       outcomes.set(id, outcome);
-      return { accepted: true, scoreDelta: outcome === "caught" ? CATCH_SCORE : 0, caughtDelta: outcome === "caught" ? 1 : 0 };
+      return { accepted: true, scoreDelta: outcome === "caught" ? points : 0, caughtDelta: outcome === "caught" ? 1 : 0 };
     },
     stop() { accepting = false; },
     reset() { outcomes.clear(); accepting = true; },

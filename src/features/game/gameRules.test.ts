@@ -1,4 +1,28 @@
 import { describe, expect, it } from "vitest";
+import { dropForSlot, bonusLaunchY, DROP_RULES, crossesBasket } from "./gameRules";
+
+it("keeps every normal slot and schedules four additional bonus challenges", () => {
+  const drops = Array.from({ length: 33 }, (_, i) => dropForSlot(i + 1));
+  expect(drops.every(drop => drop.kind === "normal" && drop.points === 100 && drop.costsHeart)).toBe(true);
+  expect(drops.filter(drop => drop.bonusKind).map(drop => drop.bonusKind)).toEqual(["fast", "fast", "super", "super"]);
+  expect(dropForSlot(1).bonusKind).toBeUndefined();
+  expect(DROP_RULES.fast).toMatchObject({ points: 300, costsHeart: false });
+  expect(DROP_RULES.super).toMatchObject({ points: 500, costsHeart: false });
+});
+
+it("launches bonus so both opposite-side drops reach the basket together", () => {
+  const catchY = 600 - 52 - 54;
+  for (const multiplier of [1.35, 1.7]) {
+    const bonusY = bonusLaunchY(200, 600, 54, multiplier);
+    expect((catchY - bonusY) / multiplier).toBeCloseTo(catchY - 200);
+  }
+});
+
+it("catches a fast drop crossing the basket between frames", () => {
+  expect(crossesBasket(400, 700, 54, 600)).toBe(true);
+  expect(crossesBasket(300, 400, 54, 600)).toBe(false);
+  expect(crossesBasket(610, 700, 54, 600)).toBe(false);
+});
 import { clampBasketX, createDirectionController, fallSpeedMultiplier, pickRandomIndex, randomSpawnX } from "./gameRules";
 
 describe("catch game rules", () => {
