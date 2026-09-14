@@ -4,6 +4,12 @@ import type { CollectedItem, CollectionSettings } from "../domain/collection";
 import { globalScaleForLevel, itemDisplaySize, shouldShrinkCollection } from "../domain/collectionRules";
 import { collectionRepository } from "../services/storage/collectionRepository";
 import { collectionSceneBridge } from "./collectionBridge";
+import {
+  canStartSceneGravityDrag,
+  DEFAULT_SCENE_GRAVITY,
+  gravityFromSceneDrag,
+  MAX_SCENE_GRAVITY,
+} from "./pointerGravity";
 
 interface Props { items: CollectedItem[]; settings: CollectionSettings; }
 
@@ -17,18 +23,18 @@ export function CollectionSceneView({ items, settings }: Props) {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    const sceneHost = host;
     let game: Phaser.Game | undefined;
     const urls = new Map<string, string>();
 
     class CollectionScene extends Phaser.Scene {
       private static readonly MAX_VELOCITY = 22;
       private static readonly DRAG_THRESHOLD = 6;
-      private static readonly MAX_GRAVITY = 2;
-
       private sprites = new Map<string, Phaser.Physics.Matter.Image>();
       private shrinkCheckPending = false;
       private lastSize = { width: 0, height: 0 };
       private unsubscribe?: () => void;
+      private gravityPointer: { id: number; x: number; y: number } | null = null;
 
       constructor() { super({ key: "pocketch-collection" }); }
 
@@ -45,6 +51,10 @@ export function CollectionSceneView({ items, settings }: Props) {
         this.matter.world.setBounds(0, 0, this.scale.width, this.scale.height, 32, true, true, true, true);
         itemsRef.current.forEach((item) => this.addItem(item));
         this.scale.on("resize", this.resize, this);
+        this.input.on(Phaser.Input.Events.POINTER_DOWN, this.beginGravityDrag);
+        this.input.on(Phaser.Input.Events.POINTER_MOVE, this.moveGravityDrag);
+        this.input.on(Phaser.Input.Events.POINTER_UP, this.endGravityDrag);
+        this.input.on(Phaser.Input.Events.GAME_OUT, this.cancelGravityDrag);
         this.unsubscribe = collectionSceneBridge.onCommand(this.command);
         collectionSceneBridge.emit({ type: "scene:ready" });
       }
@@ -55,26 +65,48 @@ export function CollectionSceneView({ items, settings }: Props) {
         if (command.type === "collection:reset") this.sprites.forEach((sprite) => sprite.destroy());
         if (command.type === "collection:reset") this.sprites.clear();
         if (command.type === "physics:gravity") this.setGravity(command.x, command.y);
-        if (command.type === "physics:shake") this.applyShakeImpulse();
       };
 
       private setGravity(x: number, y: number) {
-        const limit = CollectionScene.MAX_GRAVITY;
+        const limit = MAX_SCENE_GRAVITY;
         this.matter.world.setGravity(
           Phaser.Math.Clamp(x, -limit, limit),
           Phaser.Math.Clamp(y, -limit, limit),
         );
       }
 
-      private applyShakeImpulse() {
-        this.sprites.forEach((sprite) => {
-          const body = sprite.body as MatterJS.BodyType | null;
-          const velocity = body?.velocity ?? { x: 0, y: 0 };
-          const angle = Math.random() * Math.PI * 2;
-          const kick = 6 + Math.random() * 6;
-          this.setSpriteVelocity(sprite, velocity.x + Math.cos(angle) * kick, velocity.y + Math.sin(angle) * kick);
-        });
-      }
+      private beginGravityDrag = (
+        pointer: Phaser.Input.Pointer,
+        currentlyOver: Phaser.GameObjects.GameObject[],
+      ) => {
+        if (!canStartSceneGravityDrag(currentlyOver.length)) return;
+        this.gravityPointer = { id: pointer.id, x: pointer.worldX, y: pointer.worldY };
+        sceneHost.classList.add("collection-scene--dragging");
+      };
+
+      private moveGravityDrag = (pointer: Phaser.Input.Pointer) => {
+        const start = this.gravityPointer;
+        if (!start || start.id !== pointer.id) return;
+        const gravity = gravityFromSceneDrag(
+          start,
+          { x: pointer.worldX, y: pointer.worldY },
+          this.scale.width,
+          this.scale.height,
+        );
+        this.setGravity(gravity.x, gravity.y);
+      };
+
+      private endGravityDrag = (pointer: Phaser.Input.Pointer) => {
+        if (this.gravityPointer?.id !== pointer.id) return;
+        this.cancelGravityDrag();
+      };
+
+      private cancelGravityDrag = () => {
+        if (!this.gravityPointer) return;
+        this.gravityPointer = null;
+        sceneHost.classList.remove("collection-scene--dragging");
+        this.setGravity(DEFAULT_SCENE_GRAVITY.x, DEFAULT_SCENE_GRAVITY.y);
+      };
 
       private setSpriteVelocity(sprite: Phaser.Physics.Matter.Image, x: number, y: number) {
         const speed = Math.hypot(x, y);
@@ -195,7 +227,15 @@ export function CollectionSceneView({ items, settings }: Props) {
         this.lastSize = { width: size.width, height: size.height };
       };
 
-      shutdown() { this.unsubscribe?.(); this.unsubscribe = undefined; }
+      shutdown() {
+        this.cancelGravityDrag();
+        this.input.off(Phaser.Input.Events.POINTER_DOWN, this.beginGravityDrag);
+        this.input.off(Phaser.Input.Events.POINTER_MOVE, this.moveGravityDrag);
+        this.input.off(Phaser.Input.Events.POINTER_UP, this.endGravityDrag);
+        this.input.off(Phaser.Input.Events.GAME_OUT, this.cancelGravityDrag);
+        this.unsubscribe?.();
+        this.unsubscribe = undefined;
+      }
     }
 
     game = new Phaser.Game({ type: Phaser.AUTO, parent: host, width: host.clientWidth || 640, height: Math.max(320, host.clientHeight || 420), transparent: true, scene: CollectionScene, physics: { default: "matter", matter: { gravity: { x: 0, y: 1 }, positionIterations: 6, velocityIterations: 4 } }, scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH } });

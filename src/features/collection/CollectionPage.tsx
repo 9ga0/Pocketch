@@ -12,7 +12,7 @@ import { StorageError } from "../../services/storage/errors";
 import { mirrorDeleteItem, mirrorItem, mirrorSettings, revokeSession } from "../../services/sync/sessionSync";
 import { CaptureModal } from "./CaptureModal";
 import { ShareSessionPanel } from "./ShareSessionPanel";
-import { TiltControl } from "./TiltControl";
+import { SceneDragHint } from "./SceneDragHint";
 import { CollectionSceneView } from "../../engine/CollectionSceneView";
 
 type LoadState =
@@ -149,7 +149,7 @@ export function CollectionPage() {
           <h1 id="collection-title">내 물건을 모아보세요</h1>
           <p className="lead">사진은 기기 안에서 배경을 지운 뒤 투명 이미지로 저장됩니다.</p>
           <Button variant="primary" onClick={() => setAddItemOpen(true)}>물건 추가</Button>
-          <TiltControl />
+          <SceneDragHint />
         </div>
         <CollectionSceneView items={state.items} settings={state.settings} />
       </section>

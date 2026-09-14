@@ -4,8 +4,7 @@ export type CollectionSceneCommand =
   | { type: "item:add"; item: CollectedItem }
   | { type: "item:remove"; itemId: string }
   | { type: "collection:reset" }
-  | { type: "physics:gravity"; x: number; y: number }
-  | { type: "physics:shake" };
+  | { type: "physics:gravity"; x: number; y: number };
 
 export type CollectionSceneEvent =
   | { type: "scene:ready" }

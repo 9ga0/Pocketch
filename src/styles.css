@@ -43,8 +43,10 @@ h1, h2, p { margin-top: 0; }
 h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem); line-height: .92; letter-spacing: -.065em; }
 .lead { max-width: 540px; color: #aaa; line-height: 1.7; }
 .camera-card { align-self: center; width: min(100%, 820px); border: 1px solid #2a2a2a; border-radius: 24px; padding: 14px; background: #0d0d0d; box-shadow: 0 24px 80px rgb(0 0 0 / .35); }
-.collection-scene { width: 100%; height: min(52vh, 560px); min-height: 320px; margin: 18px 0; border: 1px solid #252525; border-radius: 18px; overflow: hidden; background: radial-gradient(circle at 50% 0%, #171717, #080808 70%); }
+.collection-scene { width: 100%; height: min(52vh, 560px); min-height: 320px; margin: 18px 0; border: 1px solid #252525; border-radius: 18px; overflow: hidden; background: radial-gradient(circle at 50% 0%, #171717, #080808 70%); cursor: grab; touch-action: none; }
+.collection-scene--dragging { cursor: grabbing; }
 .collection-scene canvas { display: block; }
+.scene-drag-hint { margin: 12px 0 0; font-size: .88rem; }
 .camera-card--centered { min-height: 340px; display: grid; place-content: center; justify-items: center; text-align: center; }
 .camera-card--centered p { margin: 8px 0 0; color: #888; }
 .camera-loader { width: 34px; height: 34px; margin-bottom: 18px; border: 3px solid #333; border-top-color: #d9ff43; border-radius: 50%; animation: spin .8s linear infinite; }
