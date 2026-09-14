@@ -1,13 +1,16 @@
-import type { CollectedItem } from "../domain/collection";
+import type { CollectedItem, CollectionSettings } from "../domain/collection";
 
 export type CollectionSceneCommand =
   | { type: "item:add"; item: CollectedItem }
   | { type: "item:remove"; itemId: string }
-  | { type: "collection:reset" };
+  | { type: "collection:reset" }
+  | { type: "physics:gravity"; x: number; y: number }
+  | { type: "physics:shake" };
 
 export type CollectionSceneEvent =
   | { type: "scene:ready" }
-  | { type: "item:detail-requested"; itemId: string };
+  | { type: "item:detail-requested"; itemId: string }
+  | { type: "settings:changed"; settings: CollectionSettings };
 
 type CommandListener = (command: CollectionSceneCommand) => void;
 type EventListener = (event: CollectionSceneEvent) => void;
