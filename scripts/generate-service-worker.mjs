@@ -21,6 +21,16 @@ for (const key of requiredResources) {
   }
 }
 
+const requiredMediaPipeAssets = [
+  "magic_touch.tflite",
+  "vision_wasm_internal.js",
+  "vision_wasm_internal.wasm",
+];
+for (const fileName of requiredMediaPipeAssets) {
+  const asset = await stat(resolve(outputDirectory, "mediapipe", fileName));
+  if (!asset.isFile() || asset.size === 0) throw new Error(`Missing offline MediaPipe asset: ${fileName}`);
+}
+
 async function filesBelow(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];

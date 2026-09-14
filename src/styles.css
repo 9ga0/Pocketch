@@ -62,6 +62,12 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .registration-card--processing { min-height: 340px; display: grid; grid-template-columns: 1fr; place-content: center; justify-items: center; text-align: center; }
 .registration-card--processing progress { width: min(100%, 380px); height: 10px; accent-color: #d9ff43; }
 .registration-card--processing p { margin: 12px 0 20px; color: #888; }
+.registration-card--selection { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+.object-selection-copy p:last-child { margin-bottom: 18px; color: #aaa; }
+.object-selection { position: relative; display: block; max-width: 100%; border: 0; padding: 0; border-radius: 16px; overflow: hidden; background: #050505; color: #d9ff43; cursor: crosshair; touch-action: manipulation; }
+.object-selection img { display: block; width: auto; height: auto; max-width: 100%; max-height: min(55vh, 520px); user-select: none; }
+.object-selection span { position: absolute; left: 50%; top: 50%; display: grid; place-items: center; width: 44px; height: 44px; border: 2px solid currentColor; border-radius: 50%; transform: translate(-50%, -50%); background: rgb(0 0 0 / .45); font-size: 1.5rem; pointer-events: none; }
+.object-selection:hover span, .object-selection:focus-visible span { transform: translate(-50%, -50%) scale(1.12); }
 .transparent-preview { position: relative; min-height: 300px; display: grid; place-items: center; overflow: hidden; border-radius: 16px; background-color: #eee; background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 24px 24px; background-position: 0 0, 0 12px, 12px -12px, -12px 0; }
 .transparent-preview img { display: block; width: 100%; height: 100%; max-height: 440px; object-fit: contain; }
 .transparent-preview span { position: absolute; right: 10px; bottom: 10px; padding: 6px 9px; border-radius: 999px; background: rgb(0 0 0 / .72); color: white; font-size: .72rem; }
