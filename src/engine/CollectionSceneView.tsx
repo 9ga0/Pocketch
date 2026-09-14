@@ -4,12 +4,7 @@ import type { CollectedItem, CollectionSettings } from "../domain/collection";
 import { globalScaleForLevel, itemDisplaySize, shouldShrinkCollection } from "../domain/collectionRules";
 import { collectionRepository } from "../services/storage/collectionRepository";
 import { collectionSceneBridge } from "./collectionBridge";
-import {
-  canStartSceneGravityDrag,
-  DEFAULT_SCENE_GRAVITY,
-  gravityFromSceneDrag,
-  MAX_SCENE_GRAVITY,
-} from "./pointerGravity";
+import { POINTER_PUSH_RADIUS, pointerPushForBody, type Point } from "./pointerPush";
 
 interface Props { items: CollectedItem[]; settings: CollectionSettings; }
 
@@ -23,7 +18,6 @@ export function CollectionSceneView({ items, settings }: Props) {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const sceneHost = host;
     let game: Phaser.Game | undefined;
     const urls = new Map<string, string>();
 
@@ -34,7 +28,7 @@ export function CollectionSceneView({ items, settings }: Props) {
       private shrinkCheckPending = false;
       private lastSize = { width: 0, height: 0 };
       private unsubscribe?: () => void;
-      private gravityPointer: { id: number; x: number; y: number } | null = null;
+      private lastPointerPosition: Point | null = null;
 
       constructor() { super({ key: "pocketch-collection" }); }
 
@@ -51,10 +45,8 @@ export function CollectionSceneView({ items, settings }: Props) {
         this.matter.world.setBounds(0, 0, this.scale.width, this.scale.height, 32, true, true, true, true);
         itemsRef.current.forEach((item) => this.addItem(item));
         this.scale.on("resize", this.resize, this);
-        this.input.on(Phaser.Input.Events.POINTER_DOWN, this.beginGravityDrag);
-        this.input.on(Phaser.Input.Events.POINTER_MOVE, this.moveGravityDrag);
-        this.input.on(Phaser.Input.Events.POINTER_UP, this.endGravityDrag);
-        this.input.on(Phaser.Input.Events.GAME_OUT, this.cancelGravityDrag);
+        this.input.on(Phaser.Input.Events.POINTER_MOVE, this.pushItemsWithPointer);
+        this.input.on(Phaser.Input.Events.GAME_OUT, this.resetPointerPosition);
         this.unsubscribe = collectionSceneBridge.onCommand(this.command);
         collectionSceneBridge.emit({ type: "scene:ready" });
       }
@@ -64,49 +56,36 @@ export function CollectionSceneView({ items, settings }: Props) {
         if (command.type === "item:remove") this.removeItem(command.itemId);
         if (command.type === "collection:reset") this.sprites.forEach((sprite) => sprite.destroy());
         if (command.type === "collection:reset") this.sprites.clear();
-        if (command.type === "physics:gravity") this.setGravity(command.x, command.y);
       };
 
-      private setGravity(x: number, y: number) {
-        const limit = MAX_SCENE_GRAVITY;
-        this.matter.world.setGravity(
-          Phaser.Math.Clamp(x, -limit, limit),
-          Phaser.Math.Clamp(y, -limit, limit),
-        );
-      }
+      private pushItemsWithPointer = (pointer: Phaser.Input.Pointer) => {
+        const current = { x: pointer.worldX, y: pointer.worldY };
+        const isInside = current.x >= 0 && current.x <= this.scale.width
+          && current.y >= 0 && current.y <= this.scale.height;
+        if (!isInside) {
+          this.resetPointerPosition();
+          return;
+        }
 
-      private beginGravityDrag = (
-        pointer: Phaser.Input.Pointer,
-        currentlyOver: Phaser.GameObjects.GameObject[],
-      ) => {
-        if (!canStartSceneGravityDrag(currentlyOver.length)) return;
-        this.gravityPointer = { id: pointer.id, x: pointer.worldX, y: pointer.worldY };
-        sceneHost.classList.add("collection-scene--dragging");
+        const previous = this.lastPointerPosition;
+        this.lastPointerPosition = current;
+        if (!previous) return;
+
+        this.sprites.forEach((sprite) => {
+          const body = sprite.body as MatterJS.BodyType | null;
+          if (!body || body.isStatic) return;
+          const bodyRadius = Math.min(60, Math.max(sprite.displayWidth, sprite.displayHeight) / 2);
+          const push = pointerPushForBody(previous, current, sprite, POINTER_PUSH_RADIUS + bodyRadius);
+          if (!push) return;
+          this.setSpriteVelocity(
+            sprite,
+            body.velocity.x + push.x,
+            body.velocity.y + push.y,
+          );
+        });
       };
 
-      private moveGravityDrag = (pointer: Phaser.Input.Pointer) => {
-        const start = this.gravityPointer;
-        if (!start || start.id !== pointer.id) return;
-        const gravity = gravityFromSceneDrag(
-          start,
-          { x: pointer.worldX, y: pointer.worldY },
-          this.scale.width,
-          this.scale.height,
-        );
-        this.setGravity(gravity.x, gravity.y);
-      };
-
-      private endGravityDrag = (pointer: Phaser.Input.Pointer) => {
-        if (this.gravityPointer?.id !== pointer.id) return;
-        this.cancelGravityDrag();
-      };
-
-      private cancelGravityDrag = () => {
-        if (!this.gravityPointer) return;
-        this.gravityPointer = null;
-        sceneHost.classList.remove("collection-scene--dragging");
-        this.setGravity(DEFAULT_SCENE_GRAVITY.x, DEFAULT_SCENE_GRAVITY.y);
-      };
+      private resetPointerPosition = () => { this.lastPointerPosition = null; };
 
       private setSpriteVelocity(sprite: Phaser.Physics.Matter.Image, x: number, y: number) {
         const speed = Math.hypot(x, y);
@@ -228,11 +207,9 @@ export function CollectionSceneView({ items, settings }: Props) {
       };
 
       shutdown() {
-        this.cancelGravityDrag();
-        this.input.off(Phaser.Input.Events.POINTER_DOWN, this.beginGravityDrag);
-        this.input.off(Phaser.Input.Events.POINTER_MOVE, this.moveGravityDrag);
-        this.input.off(Phaser.Input.Events.POINTER_UP, this.endGravityDrag);
-        this.input.off(Phaser.Input.Events.GAME_OUT, this.cancelGravityDrag);
+        this.resetPointerPosition();
+        this.input.off(Phaser.Input.Events.POINTER_MOVE, this.pushItemsWithPointer);
+        this.input.off(Phaser.Input.Events.GAME_OUT, this.resetPointerPosition);
         this.unsubscribe?.();
         this.unsubscribe = undefined;
       }
