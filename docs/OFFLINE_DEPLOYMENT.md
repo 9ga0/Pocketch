@@ -1,6 +1,6 @@
 # 오프라인 배포 안내
 
-Pocketch의 프로덕션 빌드는 앱 셸과 `isnet_quint8` 배경제거 모델을 같은 출처에서 제공하고 Service Worker로 선캐시한다. 촬영 이미지는 외부 서버로 전송하지 않으며 채집물과 게임 결과는 IndexedDB에 유지된다.
+Pocketch의 프로덕션 빌드는 앱 셸, Magic Touch 객체 선택 모델과 `isnet_quint8` 대체 배경제거 모델을 같은 출처에서 제공하고 Service Worker로 선캐시한다. 촬영 이미지는 외부 서버로 전송하지 않으며 채집물과 게임 결과는 IndexedDB에 유지된다.
 
 ## 운영 방식
 
@@ -15,7 +15,7 @@ Pocketch의 프로덕션 빌드는 앱 셸과 `isnet_quint8` 배경제거 모델
 4. 상단 상태가 `오프라인 준비 완료`로 바뀐 것을 확인한다.
 5. 개발자 도구의 Offline 모드에서 새로고침하고 촬영부터 랭킹까지 확인한다.
 
-첫 설치에서 약 100MB의 앱·모델·WASM 자산을 내려받는다. 준비가 끝나기 전에 연결이 끊기면 온라인으로 돌아온 뒤 새로고침해 다시 설치한다. 캐시가 없는 최초 오프라인 접속은 웹 애플리케이션 자체를 전달할 수 없으므로 사전 준비가 필수다.
+첫 설치에서 약 120MB의 앱·모델·WASM 자산을 내려받는다. 준비가 끝나기 전에 연결이 끊기면 온라인으로 돌아온 뒤 새로고침해 다시 설치한다. 캐시가 없는 최초 오프라인 접속은 웹 애플리케이션 자체를 전달할 수 없으므로 사전 준비가 필수다.
 
 ## 업데이트
 
@@ -24,5 +24,7 @@ Pocketch의 프로덕션 빌드는 앱 셸과 `isnet_quint8` 배경제거 모델
 ## 배경제거 자산과 라이선스
 
 `public/background-removal`에는 IMG.LY 1.7.0 데이터 패키지 중 CPU 실행에 필요한 `isnet_quint8` 모델과 ONNX Runtime 파일만 포함한다. 런타임의 `publicPath`는 이 동일 출처 경로를 사용하므로 IMG.LY CDN 요청이 발생하지 않는다. 원본 라이선스와 제3자 고지는 같은 디렉터리의 `LICENSE.md`, `ThirdPartyLicenses.json`에 포함되어 있다.
+
+`public/mediapipe`에는 Apache-2.0으로 배포되는 Google MediaPipe Magic Touch 모델과 CPU WASM 런타임을 포함한다. 객체 선택은 이 모델을 우선 사용하고 처리 실패 시에만 IS-Net으로 전환한다.
 
 공개 또는 상업 배포 전에 `@imgly/background-removal`의 AGPL-3.0 의무를 준수하거나 IMG.LY 상용 라이선스를 확보해야 한다.

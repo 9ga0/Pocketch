@@ -6,6 +6,7 @@ import {
   CameraError,
   captureVideoFrame,
 } from "../../services/camera/camera";
+import { preloadInteractiveSegmenter } from "../../services/image-processing/interactiveSegmentation";
 
 type CameraState =
   | { status: "requesting" }
@@ -61,6 +62,9 @@ export function CameraCapture({
   }, [discardPreview, onSourceDiscarded]);
 
   useEffect(() => {
+    if ("createImageBitmap" in globalThis) {
+      void preloadInteractiveSegmenter().catch(() => undefined);
+    }
     void requestCamera();
     return () => {
       controllerRef.current?.stop();
