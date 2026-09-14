@@ -90,8 +90,8 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .share-panel__link input { flex: 1; min-width: 0; border: 1px solid #383838; border-radius: 10px; padding: 8px 10px; background: #171717; color: #f4f4ef; font-size: .82rem; }
 .share-panel__error { margin: 0; color: #ff9b9b; font-size: .82rem; }
 .centered-page { width: 100%; min-height: calc(100vh - 73px); display: grid; place-items: center; padding: 24px; }
-.game-start__card { width: min(100%, 700px); padding: clamp(28px, 6vw, 72px); border: 1px solid #2a2a2a; border-radius: 24px; background: #0d0d0d; }
-.game-start__card h1 { font-size: clamp(2.6rem, 7vw, 5.5rem); }
+.game-start__card { width: min(100%, 980px); min-height: min(68vh, 620px); display: flex; flex-direction: column; justify-content: center; padding: clamp(36px, 6vw, 84px); border: 1px solid #2a2a2a; border-radius: 28px; background: #0d0d0d; }
+.game-start__card h1 { max-width: none; font-size: clamp(1.2rem, 4.5vw, 4rem); white-space: nowrap; }
 .game-start__card label { display: grid; gap: 8px; max-width: 420px; margin: 28px 0 18px; color: #ccc; font-weight: 700; }
 .game-start__card input { border: 1px solid #383838; border-radius: 10px; padding: 13px; background: #171717; color: #fff; }
 .game-page { width: 100%; padding: clamp(18px, 4vw, 48px); }
@@ -149,6 +149,8 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
   .camera-card { border-radius: 18px; padding: 9px; }
   .registration-card { grid-template-columns: 1fr; border-radius: 18px; }
   .transparent-preview { min-height: 240px; }
+  .game-start { padding: 12px; }
+  .game-start__card { min-height: min(72vh, 560px); padding: 20px; border-radius: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
