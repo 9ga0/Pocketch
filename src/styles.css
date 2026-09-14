@@ -28,7 +28,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .brand__mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #d9ff43; color: #050505; }
 nav { display: flex; align-items: center; gap: 6px; }
 .header-actions { display: flex; align-items: center; gap: 14px; }
-.offline-status { padding: 6px 10px; border: 1px solid #343434; border-radius: 999px; background: #111; color: #999; font-size: .72rem; white-space: nowrap; }
+.offline-status { padding: 6px 10px; border: 1px solid #343434; border-radius: 999px; background: #111; color: #999; font-size: .75rem; white-space: nowrap; }
 .offline-status--ready, .offline-status--offline { border-color: #4b5a1d; color: #cfe975; }
 .offline-status--error { border-color: #713838; color: #ffb9b9; }
 .offline-status--action { color: #d9ff43; cursor: pointer; }
@@ -51,7 +51,7 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .camera-loader { width: 34px; height: 34px; margin-bottom: 18px; border: 3px solid #333; border-top-color: #d9ff43; border-radius: 50%; animation: spin .8s linear infinite; }
 .camera-viewport { position: relative; overflow: hidden; width: 100%; aspect-ratio: 16 / 9; border-radius: 15px; background: #000; }
 .camera-viewport video, .camera-viewport img { width: 100%; height: 100%; display: block; object-fit: contain; }
-.camera-badge { position: absolute; top: 14px; left: 14px; padding: 7px 10px; border-radius: 999px; background: rgb(0 0 0 / .68); font-size: .72rem; font-weight: 800; letter-spacing: .06em; backdrop-filter: blur(8px); }
+.camera-badge { position: absolute; top: 14px; left: 14px; padding: 7px 10px; border-radius: 999px; background: rgb(0 0 0 / .68); font-size: .75rem; font-weight: 800; letter-spacing: .06em; backdrop-filter: blur(8px); }
 .camera-badge--live { display: flex; align-items: center; gap: 6px; }
 .camera-badge--live i { width: 7px; height: 7px; border-radius: 50%; background: #ff4a4a; }
 .camera-actions { display: flex; justify-content: center; gap: 10px; padding-top: 14px; }
@@ -71,7 +71,7 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .object-selection:hover span, .object-selection:focus-visible span { transform: translate(-50%, -50%) scale(1.12); }
 .transparent-preview { position: relative; min-height: 300px; display: grid; place-items: center; overflow: hidden; border-radius: 16px; background-color: #eee; background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%); background-size: 24px 24px; background-position: 0 0, 0 12px, 12px -12px, -12px 0; }
 .transparent-preview img { display: block; width: 100%; height: 100%; max-height: 440px; object-fit: contain; }
-.transparent-preview span { position: absolute; right: 10px; bottom: 10px; padding: 6px 9px; border-radius: 999px; background: rgb(0 0 0 / .72); color: white; font-size: .72rem; }
+.transparent-preview span { position: absolute; right: 10px; bottom: 10px; padding: 6px 9px; border-radius: 999px; background: rgb(0 0 0 / .72); color: white; font-size: .75rem; }
 .registration-card form { display: flex; flex-direction: column; }
 .registration-card h2 { margin-bottom: 22px; }
 .registration-card label { display: grid; gap: 8px; margin-bottom: 16px; color: #ccc; font-size: .9rem; font-weight: 700; }
@@ -131,7 +131,7 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .status-panel--error { border-color: #8f3939; }
 .status-panel__actions, .dialog__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
 .muted { font-size: .85rem; }
-.button { min-height: 44px; border: 1px solid #363636; border-radius: 999px; padding: 10px 18px; background: #181818; cursor: pointer; font-weight: 750; }
+.button { min-height: 48px; border: 1px solid #363636; border-radius: 999px; padding: 10px 18px; background: #181818; cursor: pointer; font-weight: 750; }
 .button:hover:not(:disabled) { border-color: #777; }
 .button:disabled { opacity: .42; cursor: not-allowed; }
 .button--primary { border-color: #d9ff43; background: #d9ff43; color: #050505; }
@@ -139,7 +139,23 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
 .dialog-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / .78); }
 .dialog { width: min(100%, 480px); padding: 28px; border: 1px solid #393939; border-radius: 20px; background: #121212; box-shadow: 0 24px 90px rgb(0 0 0 / .65); }
 .dialog.capture-modal { width: min(100%, 960px); }
-.dialog__close { float: right; border: 0; background: transparent; color: #aaa; font-size: 1.8rem; cursor: pointer; }
+.dialog__close {
+  float: right;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -10px -10px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #aaa;
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.dialog__close:hover { background: rgb(255 255 255 / .08); color: #fff; }
 .item-detail img { display: block; width: min(100%, 260px); height: 190px; margin: 0 auto 20px; object-fit: contain; background: #eee; border-radius: 12px; }
 .item-detail time { color: #888; font-size: .82rem; }
 .dialog p:not(.eyebrow) { color: #aaa; line-height: 1.6; }
@@ -158,7 +174,12 @@ h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(2.5rem, 7vw, 6.8rem
   .game-start__card { min-height: min(72vh, 560px); padding: 20px; border-radius: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes catch-pop { from { opacity: 1; transform: translate(-50%, 0) scale(.8); } to { opacity: 0; transform: translate(-50%, -44px) scale(1.25); } }
