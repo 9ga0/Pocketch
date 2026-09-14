@@ -9,7 +9,7 @@ import {
   type SharedSessionItem,
   type SharedSessionSnapshot,
 } from "../../services/sync/sessionSync";
-import { TiltControl } from "./TiltControl";
+import { ScenePointerHint } from "./ScenePointerHint";
 
 export interface SharedSessionPageProps {
   sessionId: string;
@@ -132,7 +132,7 @@ export function SharedSessionPage({ sessionId, onExit }: SharedSessionPageProps)
           <h1 id="shared-session-title">공유된 채집물 보기</h1>
           <p className="lead">읽기 전용이에요. 이 기기에서는 추가하거나 삭제할 수 없어요.</p>
           <Button variant="secondary" onClick={onExit}>내 채집물로 이동</Button>
-          <TiltControl />
+          <ScenePointerHint />
         </div>
         <CollectionSceneView items={items} settings={settings} />
       </section>

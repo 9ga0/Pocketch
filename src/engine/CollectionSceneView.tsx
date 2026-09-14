@@ -4,6 +4,7 @@ import type { CollectedItem, CollectionSettings } from "../domain/collection";
 import { globalScaleForLevel, itemDisplaySize, shouldShrinkCollection } from "../domain/collectionRules";
 import { collectionRepository } from "../services/storage/collectionRepository";
 import { collectionSceneBridge } from "./collectionBridge";
+import { POINTER_PUSH_RADIUS, pointerPushForBody, type Point } from "./pointerPush";
 
 interface Props { items: CollectedItem[]; settings: CollectionSettings; }
 
@@ -23,12 +24,11 @@ export function CollectionSceneView({ items, settings }: Props) {
     class CollectionScene extends Phaser.Scene {
       private static readonly MAX_VELOCITY = 22;
       private static readonly DRAG_THRESHOLD = 6;
-      private static readonly MAX_GRAVITY = 2;
-
       private sprites = new Map<string, Phaser.Physics.Matter.Image>();
       private shrinkCheckPending = false;
       private lastSize = { width: 0, height: 0 };
       private unsubscribe?: () => void;
+      private lastPointerPosition: Point | null = null;
 
       constructor() { super({ key: "pocketch-collection" }); }
 
@@ -45,6 +45,8 @@ export function CollectionSceneView({ items, settings }: Props) {
         this.matter.world.setBounds(0, 0, this.scale.width, this.scale.height, 32, true, true, true, true);
         itemsRef.current.forEach((item) => this.addItem(item));
         this.scale.on("resize", this.resize, this);
+        this.input.on(Phaser.Input.Events.POINTER_MOVE, this.pushItemsWithPointer);
+        this.input.on(Phaser.Input.Events.GAME_OUT, this.resetPointerPosition);
         this.unsubscribe = collectionSceneBridge.onCommand(this.command);
         collectionSceneBridge.emit({ type: "scene:ready" });
       }
@@ -54,27 +56,36 @@ export function CollectionSceneView({ items, settings }: Props) {
         if (command.type === "item:remove") this.removeItem(command.itemId);
         if (command.type === "collection:reset") this.sprites.forEach((sprite) => sprite.destroy());
         if (command.type === "collection:reset") this.sprites.clear();
-        if (command.type === "physics:gravity") this.setGravity(command.x, command.y);
-        if (command.type === "physics:shake") this.applyShakeImpulse();
       };
 
-      private setGravity(x: number, y: number) {
-        const limit = CollectionScene.MAX_GRAVITY;
-        this.matter.world.setGravity(
-          Phaser.Math.Clamp(x, -limit, limit),
-          Phaser.Math.Clamp(y, -limit, limit),
-        );
-      }
+      private pushItemsWithPointer = (pointer: Phaser.Input.Pointer) => {
+        const current = { x: pointer.worldX, y: pointer.worldY };
+        const isInside = current.x >= 0 && current.x <= this.scale.width
+          && current.y >= 0 && current.y <= this.scale.height;
+        if (!isInside) {
+          this.resetPointerPosition();
+          return;
+        }
 
-      private applyShakeImpulse() {
+        const previous = this.lastPointerPosition;
+        this.lastPointerPosition = current;
+        if (!previous) return;
+
         this.sprites.forEach((sprite) => {
           const body = sprite.body as MatterJS.BodyType | null;
-          const velocity = body?.velocity ?? { x: 0, y: 0 };
-          const angle = Math.random() * Math.PI * 2;
-          const kick = 6 + Math.random() * 6;
-          this.setSpriteVelocity(sprite, velocity.x + Math.cos(angle) * kick, velocity.y + Math.sin(angle) * kick);
+          if (!body || body.isStatic) return;
+          const bodyRadius = Math.min(60, Math.max(sprite.displayWidth, sprite.displayHeight) / 2);
+          const push = pointerPushForBody(previous, current, sprite, POINTER_PUSH_RADIUS + bodyRadius);
+          if (!push) return;
+          this.setSpriteVelocity(
+            sprite,
+            body.velocity.x + push.x,
+            body.velocity.y + push.y,
+          );
         });
-      }
+      };
+
+      private resetPointerPosition = () => { this.lastPointerPosition = null; };
 
       private setSpriteVelocity(sprite: Phaser.Physics.Matter.Image, x: number, y: number) {
         const speed = Math.hypot(x, y);
@@ -195,7 +206,13 @@ export function CollectionSceneView({ items, settings }: Props) {
         this.lastSize = { width: size.width, height: size.height };
       };
 
-      shutdown() { this.unsubscribe?.(); this.unsubscribe = undefined; }
+      shutdown() {
+        this.resetPointerPosition();
+        this.input.off(Phaser.Input.Events.POINTER_MOVE, this.pushItemsWithPointer);
+        this.input.off(Phaser.Input.Events.GAME_OUT, this.resetPointerPosition);
+        this.unsubscribe?.();
+        this.unsubscribe = undefined;
+      }
     }
 
     game = new Phaser.Game({ type: Phaser.AUTO, parent: host, width: host.clientWidth || 640, height: Math.max(320, host.clientHeight || 420), transparent: true, scene: CollectionScene, physics: { default: "matter", matter: { gravity: { x: 0, y: 1 }, positionIterations: 6, velocityIterations: 4 } }, scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH } });
